@@ -73,15 +73,3 @@ mototrack/
     └── styles/
         └── globalStyles.js
 ---
-
-## 🚀 Como Executar o Projeto
-
-### 📌 Pré-requisitos
-
-- **Node.js** (versão LTS)
-- **npm** ou **yarn**
-- **Expo CLI** instalado globalmente:
-
-```bash
-npm install -g expo-cli
-
