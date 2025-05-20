@@ -72,18 +72,3 @@ mototrack/
     │   └── PreferenciasScreen.jsx
     └── styles/
         └── globalStyles.js
-
-
-✅ Agora o Markdown vai entender que **após a linha das três crases o bloco de código acabou**, e todo o texto abaixo será exibido normalmente, formatado como texto, não como código.
-
----
-
-## ⚠️ Dica extra:  
-
-- Nunca coloque nada após ` ``` `.  
-- Sempre deixe uma linha **em branco** antes e depois, para manter a organização.
-
----
-
-**Quer que eu gere um modelo de README completo, com vários blocos de código organizados para você copiar e colar direto?**  
-**Sim ou Não?**
