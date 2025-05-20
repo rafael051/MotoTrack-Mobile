@@ -70,42 +70,20 @@ mototrack/
     │   ├── ListagemMotosScreen.jsx
     │   ├── DetalheMotoScreen.jsx
     │   └── PreferenciasScreen.jsx
-    └── styles/```plaintext
-mototrack/
-├── App.jsx
-├── app.json
-├── babel.config.js
-├── package.json
-└── src/
-    ├── components/
-    │   ├── FormInput.jsx
-    │   ├── FormInputStyles.js
-    │   ├── MotoCard.jsx
-    │   └── MotoCardStyles.js
-    ├── routes/
-    │   └── AppRoutes.jsx
-    ├── screens/
-    │   ├── HomeScreen.jsx
-    │   ├── CadastroMotoScreen.jsx
-    │   ├── ListagemMotosScreen.jsx
-    │   ├── DetalheMotoScreen.jsx
-    │   └── PreferenciasScreen.jsx
     └── styles/
         └── globalStyles.js
 
 
+✅ Agora o Markdown vai entender que **após a linha das três crases o bloco de código acabou**, e todo o texto abaixo será exibido normalmente, formatado como texto, não como código.
 
 ---
 
-**⚠️ Importante:**  
-Nunca misture conteúdo do texto após o bloco sem fechar antes.  
-Senão, tudo será interpretado como parte do bloco de código.
+## ⚠️ Dica extra:  
+
+- Nunca coloque nada após ` ``` `.  
+- Sempre deixe uma linha **em branco** antes e depois, para manter a organização.
 
 ---
 
-**Quer que eu te envie o modelo de um README completo com vários blocos de código bem organizados para você seguir?**  
+**Quer que eu gere um modelo de README completo, com vários blocos de código organizados para você copiar e colar direto?**  
 **Sim ou Não?**
-
-
-
-
