@@ -70,6 +70,43 @@ mototrack/
     │   ├── ListagemMotosScreen.jsx
     │   ├── DetalheMotoScreen.jsx
     │   └── PreferenciasScreen.jsx
+    └── styles/```plaintext
+mototrack/
+├── App.jsx
+├── app.json
+├── babel.config.js
+├── package.json
+└── src/
+    ├── components/
+    │   ├── FormInput.jsx
+    │   ├── FormInputStyles.js
+    │   ├── MotoCard.jsx
+    │   └── MotoCardStyles.js
+    ├── routes/
+    │   └── AppRoutes.jsx
+    ├── screens/
+    │   ├── HomeScreen.jsx
+    │   ├── CadastroMotoScreen.jsx
+    │   ├── ListagemMotosScreen.jsx
+    │   ├── DetalheMotoScreen.jsx
+    │   └── PreferenciasScreen.jsx
     └── styles/
         └── globalStyles.js
+
+
+
+---
+
+**⚠️ Importante:**  
+Nunca misture conteúdo do texto após o bloco sem fechar antes.  
+Senão, tudo será interpretado como parte do bloco de código.
+
+---
+
+**Quer que eu te envie o modelo de um README completo com vários blocos de código bem organizados para você seguir?**  
+**Sim ou Não?**
+
+
+
+
 
