@@ -2,12 +2,11 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-// 📂 Telas principais
-import HomeScreen from '../screens/HomeScreen.jsx';
-import CadastroMotoScreen from '../screens/CadastroMotoScreen.jsx';
-import ListagemMotosScreen from '../screens/ListagemMotosScreen.jsx';
-import DetalheMotoScreen from '../screens/DetalheMotoScreen.jsx';
-import PreferenciasScreen from '../screens/PreferenciasScreen.jsx';
+import HomeScreen from '../screens/HomeScreen';
+import CadastroMotoScreen from '../screens/CadastroMotoScreen';
+import ListagemMotosScreen from '../screens/ListagemMotosScreen';
+import DetalheMotoScreen from '../screens/DetalheMotoScreen';
+import PreferenciasScreen from '../screens/PreferenciasScreen';
 
 const Stack = createNativeStackNavigator();
 

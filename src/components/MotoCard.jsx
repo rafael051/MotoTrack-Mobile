@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import styles from './MotoCardStyles.js';
+import globalStyles from '../styles/globalStyles';
 
 /**
  * Componente MotoCard
@@ -10,9 +10,9 @@ import styles from './MotoCardStyles.js';
  */
 export default function MotoCard({ moto, onPress }) {
     return (
-        <TouchableOpacity onPress={onPress} style={styles.card}>
-            <Text style={styles.placa}>{moto.placa}</Text>
-            <Text style={styles.modelo}>{moto.modelo}</Text>
+        <TouchableOpacity onPress={onPress} style={globalStyles.card}>
+            <Text style={globalStyles.cardPlaca}>{moto.placa}</Text>
+            <Text style={globalStyles.cardModelo}>{moto.modelo}</Text>
         </TouchableOpacity>
     );
 }

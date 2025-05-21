@@ -6,6 +6,14 @@ export default StyleSheet.create({
         padding: 20,
         backgroundColor: '#f9f9f9',
     },
+    inputContainer: {
+        marginBottom: 12,
+    },
+    inputLabel: {
+        marginBottom: 4,
+        fontWeight: 'bold',
+        color: '#333',
+    },
     input: {
         borderWidth: 1,
         borderColor: '#ccc',
@@ -46,8 +54,26 @@ export default StyleSheet.create({
         shadowRadius: 4,
         elevation: 3,
     },
+    cardPlaca: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 4,
+        color: '#333',
+    },
+    cardModelo: {
+        fontSize: 14,
+        color: '#666',
+    },
     text: {
         fontSize: 16,
         color: '#333',
+    },
+    header: {
+        backgroundColor: '#007BFF',
+    },
+    headerTitle: {
+        fontWeight: 'bold',
+        fontSize: 20,
+        color: '#fff',
     },
 });
