@@ -7,6 +7,8 @@ import CadastroMotoScreen from '../screens/CadastroMotoScreen';
 import ListagemMotosScreen from '../screens/ListagemMotosScreen';
 import DetalheMotoScreen from '../screens/DetalheMotoScreen';
 import PreferenciasScreen from '../screens/PreferenciasScreen';
+import CadastroPatioScreen from '../screens/CadastroPatioScreen';
+import SobreScreen from '../screens/SobreScreen';  // ✅ Import novo
 
 const Stack = createNativeStackNavigator();
 
@@ -38,6 +40,16 @@ export default function AppRoutes() {
                     name="Preferencias"
                     component={PreferenciasScreen}
                     options={{ title: '⚙️ Preferências' }}
+                />
+                <Stack.Screen
+                    name="CadastroPatio"
+                    component={CadastroPatioScreen}
+                    options={{ title: '🏢 Cadastrar Pátio' }}
+                />
+                <Stack.Screen
+                    name="Sobre"
+                    component={SobreScreen}
+                    options={{ title: 'ℹ️ Sobre' }}
                 />
             </Stack.Navigator>
         </NavigationContainer>

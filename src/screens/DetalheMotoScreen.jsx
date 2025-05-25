@@ -15,8 +15,23 @@ export default function DetalheMotoScreen({ route }) {
             </Text>
 
             <Text style={globalStyles.text}>
+                <Text style={{ fontWeight: 'bold' }}>Marca: </Text>
+                {moto.marca}
+            </Text>
+
+            <Text style={globalStyles.text}>
                 <Text style={{ fontWeight: 'bold' }}>Modelo: </Text>
                 {moto.modelo}
+            </Text>
+
+            <Text style={globalStyles.text}>
+                <Text style={{ fontWeight: 'bold' }}>Ano: </Text>
+                {moto.ano}
+            </Text>
+
+            <Text style={globalStyles.text}>
+                <Text style={{ fontWeight: 'bold' }}>Renavam: </Text>
+                {moto.renavam}
             </Text>
         </View>
     );

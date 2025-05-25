@@ -6,7 +6,7 @@
 
 **MotoTrack** é um aplicativo móvel desenvolvido com **React Native e Expo**, como parte da disciplina **Mobile Application Development**.
 
-O projeto funciona como um sistema de **mapeamento inteligente e gestão de motos**, com funcionalidades que incluem cadastro, listagem, detalhamento, preferências de usuário, armazenamento local e navegação fluida entre telas.
+O projeto funciona como um sistema de **mapeamento inteligente e gestão de motos**, com funcionalidades que incluem cadastro, listagem, detalhamento, preferências de usuário, armazenamento local e navegação fluida entre telas. Agora também com gestão de **Pátios** e uma tela **Sobre**.
 
 **Objetivos principais:**
 
@@ -15,15 +15,17 @@ O projeto funciona como um sistema de **mapeamento inteligente e gestão de moto
 - ✅ Persistência local segura utilizando `AsyncStorage`.
 - ✅ Código modular e organizado com componentes reutilizáveis.
 - ✅ Interface clara e intuitiva.
+- ✅ Validações robustas para garantir integridade dos dados.
 
 ---
 
 ## 👥 Integrantes
 
-- **Nome:** Rafael Rodrigues de Almeida  
+- **Nome:** Rafael Rodrigues de Almeida
 - **RM:** 557837
 
-*(Caso haja mais integrantes, adicione aqui.)*
+- **Nome:** Lucas Kenji Miyahira
+- **RM:** 555368
 
 ---
 
@@ -35,8 +37,15 @@ O projeto funciona como um sistema de **mapeamento inteligente e gestão de moto
   - Listagem de Motos
   - Detalhes da Moto
   - Preferências do Usuário
+  - Cadastro de Pátio
+  - Sobre o App
 
 - ✅ **Formulário interativo** com manipulação de estado (`useState`).
+
+- ✅ **Validações robustas**:
+  - Placa no padrão nacional.
+  - UF com 2 letras.
+  - CEP numérico com 8 dígitos.
 
 - ✅ **Armazenamento local** persistente com `AsyncStorage`.
 
@@ -44,7 +53,7 @@ O projeto funciona como um sistema de **mapeamento inteligente e gestão de moto
 
 - ✅ **Estilos modularizados** usando arquivos separados (`globalStyles.js`).
 
-- ✅ **Validação e tratamento adequado de erros**.
+- ✅ **Tela Sobre** com informações do projeto e desenvolvedores.
 
 ---
 
@@ -59,9 +68,7 @@ mototrack/
 └── src/
     ├── components/
     │   ├── FormInput.jsx
-    │   ├── FormInputStyles.js
     │   ├── MotoCard.jsx
-    │   └── MotoCardStyles.js
     ├── routes/
     │   └── AppRoutes.jsx
     ├── screens/
@@ -69,9 +76,12 @@ mototrack/
     │   ├── CadastroMotoScreen.jsx
     │   ├── ListagemMotosScreen.jsx
     │   ├── DetalheMotoScreen.jsx
-    │   └── PreferenciasScreen.jsx
+    │   ├── PreferenciasScreen.jsx
+    │   ├── CadastroPatioScreen.jsx
+    │   └── SobreScreen.jsx
     └── styles/
         └── globalStyles.js
+
 ```
 
 ---

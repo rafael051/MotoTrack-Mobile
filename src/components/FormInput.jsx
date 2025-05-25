@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, TextInput } from 'react-native';
 import globalStyles from '../styles/globalStyles';
 
+const { inputContainer, inputLabel, input } = globalStyles;
+
 /**
  * Componente de Input reutilizável com label.
  *
@@ -10,16 +12,17 @@ import globalStyles from '../styles/globalStyles';
  * @param {function} onChangeText - Função que atualiza o valor do input
  * @param {string} placeholder - Texto de placeholder (opcional)
  */
-export default function FormInput({ label, value, onChangeText, placeholder }) {
+export default function FormInput({ label, value, onChangeText, placeholder, ...props }) {
     return (
-        <View style={globalStyles.inputContainer}>
-            <Text style={globalStyles.inputLabel}>{label}</Text>
+        <View style={inputContainer}>
+            <Text style={inputLabel}>{label}</Text>
             <TextInput
                 value={value}
                 onChangeText={onChangeText}
                 placeholder={placeholder}
                 placeholderTextColor="#999"
-                style={globalStyles.input}
+                style={input}
+                {...props}
             />
         </View>
     );

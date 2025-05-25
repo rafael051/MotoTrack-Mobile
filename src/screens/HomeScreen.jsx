@@ -25,6 +25,20 @@ export default function HomeScreen({ navigation }) {
             >
                 <Text style={globalStyles.buttonText}>Preferências</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+                style={globalStyles.button}
+                onPress={() => navigation.navigate('CadastroPatio')}
+            >
+                <Text style={globalStyles.buttonText}>Cadastrar Pátio</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={globalStyles.button}
+                onPress={() => navigation.navigate('Sobre')}
+            >
+                <Text style={globalStyles.buttonText}>Sobre</Text>
+            </TouchableOpacity>
         </View>
     );
 }
