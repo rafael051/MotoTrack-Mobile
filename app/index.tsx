@@ -1,210 +1,190 @@
-// app/LoginScreen.tsx
-import { Link, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    Alert,
-    ActivityIndicator,
-    Keyboard,
-} from 'react-native';
-import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../src/services/firebaseConfig';
+import { Link } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { signInWithEmailAndPassword,sendPasswordResetEmail } from 'firebase/auth';
+import {auth} from '../src/services/firebaseConfig'
 import { useTheme } from '../src/context/ThemeContext';
 import ThemeToggleButton from '../src/components/ThemeToggleButton';
 import { useTranslation } from 'react-i18next';
+import globalStyles from "../src/styles/globalStyles";
 
-// estilos globais
-import globalStyles, { tokens } from '../src/globalStyles';
 
 export default function LoginScreen() {
-    const { t } = useTranslation();
+    // 🌍 i18n
+    const { t, i18n } = useTranslation();
+
+    const mudarIdioma = (lang: string) => {
+        i18n.changeLanguage(lang);
+    };
+
+    // 🎨 Cores do nosso ThemeContext
     const { colors } = useTheme();
+
+    // 📧 Estados
+    const [email, setEmail] = useState("");
+    const [senha, setSenha] = useState("");
+
     const router = useRouter();
 
-    const [email, setEmail] = useState('');
-    const [senha, setSenha] = useState('');
-    const [loading, setLoading] = useState(false);
+    // 🔎 Verifica se já existe usuário logado
+    const verificarUsuarioLogado = async () => {
+        try {
+            const usuarioSalvo = await AsyncStorage.getItem("@user");
+            if (usuarioSalvo) {
+                router.push("/HomeScreen");
+            }
+        } catch (error) {
+            console.log("Erro ao verificar login", error);
+        }
+    };
 
-    // Redireciona se já estiver logado (Firebase persiste sessão)
     useEffect(() => {
-        const unsub = onAuthStateChanged(auth, (user) => {
-            if (user) router.replace('/HomeScreen');
-        });
-        return () => unsub();
-    }, [router]);
+        verificarUsuarioLogado();
+    }, []);
 
-    const placeholderColor = useMemo(
-        () => colors.muted ?? '#9aa0a6',
-        [colors.muted]
-    );
-
-    const isEmailValido = (value: string) =>
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-
-    const mapFirebaseError = (code?: string) => {
-        switch (code) {
-            case 'auth/invalid-credential':
-            case 'auth/invalid-email':
-            case 'auth/wrong-password':
-            case 'auth/user-not-found':
-                return t('auth.invalidCredentials', 'E-mail ou senha inválidos.');
-            case 'auth/too-many-requests':
-                return t('auth.tooManyRequests', 'Muitas tentativas. Tente mais tarde.');
-            case 'auth/network-request-failed':
-                return t('auth.network', 'Falha de rede. Verifique sua conexão.');
-            default:
-                return t('auth.generic', 'Ocorreu um erro ao entrar.');
+    // 🔐 Login com Firebase
+    const handleLogin = () => {
+        if (!email || !senha) {
+            Alert.alert("Atenção", "Preencha todos os campos!");
+            return;
         }
+
+        signInWithEmailAndPassword(auth, email, senha)
+            .then(async (userCredential) => {
+                const user = userCredential.user;
+                await AsyncStorage.setItem("@user", JSON.stringify(user));
+                router.push("/HomeScreen");
+            })
+            .catch((error) => {
+                if (error.code === "auth/invalid-credential") {
+                    Alert.alert("Atenção", "E-mail ou senha incorretos, verifique.");
+                } else {
+                    console.log("Erro:", error.message);
+                }
+            });
     };
 
-    const handleLogin = async () => {
-        const emailTrim = email.trim();
-        const senhaTrim = senha.trim();
-
-        if (!emailTrim || !senhaTrim) {
-            Alert.alert(t('common.attention', 'Atenção'), t('auth.fillAll', 'Preencha todos os campos!'));
+    // 🔑 Resetar senha
+    const esqueceuSenha = () => {
+        if (!email) {
+            Alert.alert("Atenção", "Digite o e-mail para recuperar a senha");
             return;
         }
-        if (!isEmailValido(emailTrim)) {
-            Alert.alert(t('common.attention', 'Atenção'), t('auth.invalidEmail', 'E-mail inválido.'));
-            return;
-        }
-
-        try {
-            setLoading(true);
-            Keyboard.dismiss();
-            await signInWithEmailAndPassword(auth, emailTrim, senhaTrim);
-            // redireciona via onAuthStateChanged
-        } catch (error: any) {
-            const msg = mapFirebaseError(error?.code);
-            Alert.alert(t('common.attention', 'Atenção'), msg);
-            console.log('[Login] error', error?.code, error?.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const esqueceuSenha = async () => {
-        const emailTrim = email.trim();
-        if (!emailTrim) {
-            Alert.alert(t('common.attention', 'Atenção'), t('auth.typeEmail', 'Digite o e-mail para recuperar a senha.'));
-            return;
-        }
-        if (!isEmailValido(emailTrim)) {
-            Alert.alert(t('common.attention', 'Atenção'), t('auth.invalidEmail', 'E-mail inválido.'));
-            return;
-        }
-
-        try {
-            setLoading(true);
-            await sendPasswordResetEmail(auth, emailTrim);
-            Alert.alert(t('common.ready', 'Pronto!'), t('auth.resetSent', 'Email de recuperação enviado.'));
-        } catch (error: any) {
-            console.log('[Reset] error', error?.code, error?.message);
-            Alert.alert(t('common.attention', 'Atenção'), t('auth.resetFail', 'Erro ao enviar e-mail de reset de senha.'));
-        } finally {
-            setLoading(false);
-        }
+        sendPasswordResetEmail(auth, email)
+            .then(() => {
+                Alert.alert("Sucesso", "E-mail de recuperação enviado");
+            })
+            .catch((error) => {
+                console.log("Erro:", error.message);
+                Alert.alert("Erro", "Não foi possível enviar o e-mail de reset");
+            });
     };
 
     return (
-        <View
-            style={[
-                globalStyles.container,
-                { backgroundColor: colors.background, justifyContent: 'center' },
-            ]}
-        >
-            <Text style={[globalStyles.title, { color: colors.text, textAlign: 'center', marginBottom: 30 }]}>
-                {t('welcome', 'Seja bem-vindo')}
-            </Text>
+        <View style={[globalStyles.container, { backgroundColor: colors.background }]}>
+            <View style={globalStyles.authContainer}>
+                <Text style={[globalStyles.title, { color: colors.text }]}>
+                    {t("welcome")}
+                </Text>
 
-            {/* Email */}
-            <View style={globalStyles.inputContainer}>
-                <Text style={[globalStyles.inputLabel, { color: colors.text }]}>{t('login', 'Realizar o login')}</Text>
+                {/* Inputs */}
                 <TextInput
                     style={[
                         globalStyles.input,
                         {
                             color: colors.text,
-                            borderColor: colors.border ?? tokens.colors.border,
-                            backgroundColor: colors.surface ?? tokens.colors.card,
+                            borderWidth: 1,
+                            borderColor: colors.border, // usa a cor de borda do tema
                         },
                     ]}
                     placeholder="E-mail"
-                    placeholderTextColor={placeholderColor}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    textContentType="emailAddress"
+                    placeholderTextColor={colors.mutedText}
                     value={email}
                     onChangeText={setEmail}
-                    returnKeyType="next"
                 />
-            </View>
 
-            {/* Senha */}
-            <View style={globalStyles.inputContainer}>
-                <Text style={[globalStyles.inputLabel, { color: colors.text }]}>{t('password', 'Senha')}</Text>
                 <TextInput
                     style={[
                         globalStyles.input,
                         {
                             color: colors.text,
-                            borderColor: colors.border ?? tokens.colors.border,
-                            backgroundColor: colors.surface ?? tokens.colors.card,
+                            borderWidth: 1,
+                            borderColor: colors.border,
                         },
                     ]}
-                    placeholder={t('password', 'Senha')}
-                    placeholderTextColor={placeholderColor}
+                    placeholder={t("password")}
+                    placeholderTextColor={colors.mutedText}
                     secureTextEntry
-                    textContentType="password"
                     value={senha}
                     onChangeText={setSenha}
-                    returnKeyType="done"
-                    onSubmitEditing={handleLogin}
                 />
+
+
+                {/* Botão Login */}
+                <TouchableOpacity
+                    style={[globalStyles.button, { backgroundColor: colors.button }]}
+                    onPress={handleLogin}
+                >
+                    <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>
+                        {t("login")}
+                    </Text>
+                </TouchableOpacity>
+
+                {/* Botões de idioma */}
+                <View style={globalStyles.rowCenter}>
+                    <TouchableOpacity
+                        style={[
+                            globalStyles.langButton,
+                            { backgroundColor: colors.langEnBg }
+                        ]}
+                        onPress={() => mudarIdioma("en")}
+                    >
+                        <Text style={{ color: colors.langEnText }}>EN</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[
+                            globalStyles.langButton,
+                            { backgroundColor: colors.langPtBg }
+                        ]}
+                        onPress={() => mudarIdioma("pt")}
+                    >
+                        <Text style={{ color: colors.langPtText }}>PT</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[
+                            globalStyles.langButton,
+                            {
+                                backgroundColor: colors.langEsBg,
+                                borderWidth: colors.langEsBorder ? 1 : 0,
+                                borderColor: colors.langEsBorder ?? "transparent",
+                            }
+                        ]}
+                        onPress={() => mudarIdioma("es")}
+                    >
+                        <Text style={{ color: colors.langEsText }}>ES</Text>
+                    </TouchableOpacity>
+                </View>
+
+
+                {/* Alternar tema */}
+                <ThemeToggleButton />
+
+                {/* Links */}
+                <Link href="CadastrarScreen" style={[globalStyles.link, { color: colors.text }]}>
+                    {t("register")}
+                </Link>
+                <Text
+                    style={[globalStyles.forgotPassword, { color: colors.text }]}
+                    onPress={esqueceuSenha}
+                >
+                    Esqueceu a senha?
+                </Text>
             </View>
-
-            {/* Botão Login */}
-            <TouchableOpacity
-                style={[
-                    globalStyles.button,
-                    { backgroundColor: colors.primary ?? tokens.colors.primary, opacity: loading ? 0.7 : 1 },
-                ]}
-                onPress={handleLogin}
-                disabled={loading}
-                accessibilityRole="button"
-                accessibilityLabel={t('login', 'Realizar o login')}
-            >
-                {loading ? (
-                    <ActivityIndicator />
-                ) : (
-                    <Text style={globalStyles.buttonText}>{t('login', 'Realizar o login')}</Text>
-                )}
-            </TouchableOpacity>
-
-            <ThemeToggleButton />
-
-            {/* Cadastro */}
-            <Link
-                href="/CadastrarScreen"
-                style={{ marginTop: 20, color: colors.text, alignSelf: 'center' }}
-                accessibilityRole="link"
-            >
-                {t('register', 'Cadastre-se')}
-            </Link>
-
-            {/* Esqueci a senha */}
-            <Text
-                style={{ marginTop: 20, color: colors.text, alignSelf: 'center' }}
-                onPress={esqueceuSenha}
-                accessibilityRole="button"
-            >
-                {t('auth.forgotPassword', 'Esqueci a senha')}
-            </Text>
         </View>
+
     );
 }

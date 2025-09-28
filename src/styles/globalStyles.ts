@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, TextStyle, ViewStyle } from "react-native";
 
 /* ============================================================
 🎨 Global Styles
@@ -12,16 +12,47 @@ Centraliza estilos reutilizáveis do app MotoTrack Mobile.
 - Tipografia
 - Cards
 - Headers
+- Auxiliares
 ============================================================ */
 
-export default StyleSheet.create({
+// Tipagem explícita dos estilos
+interface GlobalStyles {
+    container: ViewStyle;
+    inputContainer: ViewStyle;
+    inputLabel: TextStyle;
+    input: TextStyle & ViewStyle;
+    button: ViewStyle;
+    buttonText: TextStyle;
+    title: TextStyle;
+    text: TextStyle;
+    card: ViewStyle;
+    cardPlaca: TextStyle;
+    cardModelo: TextStyle;
+    header: ViewStyle;
+    headerTitle: TextStyle;
+    rowCenter: ViewStyle;
+    link: TextStyle;
+    forgotPassword: TextStyle;
+
+    // ➕ novos estilos adicionados
+    authContainer: ViewStyle;
+    langButton: ViewStyle;
+    langText: TextStyle;
+}
+
+const globalStyles = StyleSheet.create<GlobalStyles>({
     // ============================
     // 📦 Containers
     // ============================
     container: {
         flex: 1,
         padding: 24,
-        backgroundColor: "#f2f2f2",
+        justifyContent: "center", // Centraliza vertical
+    },
+    authContainer: {
+        width: "100%",
+        maxWidth: 380,
+        alignSelf: "center",
     },
 
     // ============================
@@ -34,21 +65,14 @@ export default StyleSheet.create({
         marginBottom: 6,
         fontWeight: "600",
         fontSize: 14,
-        color: "#444",
     },
     input: {
         borderWidth: 1,
-        borderColor: "#ddd",
         borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: "#fff",
         fontSize: 16,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
+        marginBottom: 14,
     },
 
     // ============================
@@ -59,7 +83,6 @@ export default StyleSheet.create({
         paddingVertical: 14,
         paddingHorizontal: 24,
         borderRadius: 12,
-        backgroundColor: "#2563EB", // Azul vibrante
         alignItems: "center",
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
@@ -68,24 +91,43 @@ export default StyleSheet.create({
         elevation: 3,
     },
     buttonText: {
-        color: "#fff",
         fontSize: 16,
         fontWeight: "600",
         letterSpacing: 0.5,
+    },
+
+    // 🔘 Botões de idioma
+    rowCenter: {
+        flexDirection: "row",
+        justifyContent: "center",
+        marginBottom: 15,
+        gap: 12,
+    },
+    langButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 20,
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 50,
+    },
+    langText: {
+        fontWeight: "700",
+        fontSize: 14,
+        color: "#fff",
     },
 
     // ============================
     // 🔤 Tipografia
     // ============================
     title: {
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: "700",
         marginBottom: 20,
-        color: "#111",
+        textAlign: "center",
     },
     text: {
         fontSize: 16,
-        color: "#333",
         lineHeight: 22,
     },
 
@@ -93,7 +135,6 @@ export default StyleSheet.create({
     // 🃏 Cards
     // ============================
     card: {
-        backgroundColor: "#fff",
         padding: 20,
         borderRadius: 16,
         marginBottom: 16,
@@ -107,11 +148,9 @@ export default StyleSheet.create({
         fontSize: 18,
         fontWeight: "700",
         marginBottom: 6,
-        color: "#111",
     },
     cardModelo: {
         fontSize: 15,
-        color: "#555",
         marginBottom: 4,
     },
 
@@ -119,11 +158,30 @@ export default StyleSheet.create({
     // 📑 Headers
     // ============================
     header: {
-        backgroundColor: "#2563EB",
+        height: 56,
+        justifyContent: "center",
+        paddingHorizontal: 16,
+        elevation: 4,
     },
     headerTitle: {
         fontWeight: "700",
         fontSize: 20,
-        color: "#fff",
+    },
+
+    // ============================
+    // 🌐 Auxiliares
+    // ============================
+    link: {
+        marginTop: 20,
+        alignSelf: "center",
+        fontSize: 14,
+        textDecorationLine: "underline",
+    },
+    forgotPassword: {
+        marginTop: 20,
+        alignSelf: "center",
+        fontSize: 14,
     },
 });
+
+export default globalStyles;

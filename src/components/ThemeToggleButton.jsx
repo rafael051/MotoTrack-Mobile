@@ -4,17 +4,15 @@ import { useTheme } from "../context/ThemeContext";
 import globalStyles from "../styles/globalStyles";
 
 /* ============================================================
-🎨 ThemeToggleButton
+🔘 ThemeToggleButton
 ------------------------------------------------------------
-Botão responsável por alternar entre tema claro/escuro.
+Botão para alternar entre temas (claro/escuro).
 
-- Usa `useTheme()` para acessar:
-  • toggleTheme → função que alterna o tema
-  • colors      → paleta dinâmica do tema atual
+- Estilos fixos → definidos em globalStyles (padding, borda, fonte)
+- Estilos dinâmicos → fornecidos pelo ThemeContext (cores)
 
-- Estilos visuais fixos (padding, borda, fonte)
-  ficam centralizados em `globalStyles`
-- Estilos de cor (fundo e texto) vêm do ThemeContext
+📌 Uso:
+<ThemeToggleButton />
 ============================================================ */
 
 export default function ThemeToggleButton() {
