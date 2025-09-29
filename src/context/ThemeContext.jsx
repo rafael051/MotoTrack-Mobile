@@ -64,49 +64,57 @@ export default function ThemeProvider({ children }) {
     ============================================================ */
     const themeColors = {
         light: {
-            background: "#F9FAFB",   // cinza claro
-            surface: "#FFFFFF",      // cartões / inputs
-            text: "#111827",         // texto principal
-            button: "#22C55E",       // verde Mottu (primário)
-            buttonText: "#FFFFFF",   // texto branco
-            buttonSecondary: "#6D28D9",  // roxo intenso
+            background: "#F9FAFB",
+            surface: "#FFFFFF",
+            text: "#111827",
+            button: "#22C55E",
+            buttonText: "#FFFFFF",
+            buttonSecondary: "#6D28D9",
             buttonSecondaryText: "#FFFFFF",
-            accent: "#9333EA",       // roxo vibrante para detalhes
+            accent: "#9333EA",
             border: "#E5E7EB",
             mutedText: "#6B7280",
 
-            // 🔤 Botões de idioma
-            langEnBg: "#22C55E",   // 🌱 verde Mottu (EN)
+            // Botões de idioma
+            langEnBg: "#22C55E",
             langEnText: "#FFFFFF",
-
-            langPtBg: "#2563EB",   // 🔵 azul elegante (PT, cor que remete ao Brasil e tecnologia)
+            langPtBg: "#2563EB",
             langPtText: "#FFFFFF",
-
-            langEsBg: "#9333EA",   // 🟣 roxo vibrante (ES, forte e estiloso)
+            langEsBg: "#9333EA",
             langEsText: "#FFFFFF",
 
+            // 👇 adicionados
+            ripple: "rgba(0,0,0,0.08)",
+            dangerBg: "#7f1d1d",
+            dangerBorder: "#ef4444",
         },
         dark: {
-            background: "#0B0B0F",   // quase preto
-            surface: "#1E1B29",      // roxo bem escuro para cartões
-            text: "#F3F4F6",         // texto claro
-            button: "#9333EA",       // roxo vibrante (primário)
+            background: "#0B0B0F",
+            surface: "#1E1B29",
+            text: "#F3F4F6",
+            button: "#9333EA",
             buttonText: "#FFFFFF",
-            buttonSecondary: "#22C55E", // verde Mottu como secundário
+            buttonSecondary: "#22C55E",
             buttonSecondaryText: "#111827",
-            accent: "#22C55E",       // verde como detalhe
+            accent: "#22C55E",
             border: "#4B5563",
             mutedText: "#9CA3AF",
 
-            // 🔤 Botões de idioma
-            langEnBg: "#22C55E",   // verde Mottu
+            // Botões de idioma
+            langEnBg: "#22C55E",
             langEnText: "#111827",
-            langPtBg: "#9333EA",   // roxo vibrante
+            langPtBg: "#9333EA",
             langPtText: "#FFFFFF",
-            langEsBg: "#d95d28",   // roxo escuro
+            langEsBg: "#d95d28",
             langEsText: "#FFFFFF",
+
+            // 👇 adicionados
+            ripple: "rgba(255,255,255,0.08)",
+            dangerBg: "#450a0a",
+            dangerBorder: "#ef4444",
         },
     };
+
 
 
 

@@ -1,11 +1,12 @@
+// File: src/styles/globalStyles.ts
 import { StyleSheet, TextStyle, ViewStyle } from "react-native";
 
 /* ============================================================
-🎨 Global Styles
+🎨 Global Styles — MotoTrack Mobile
 ------------------------------------------------------------
-Centraliza estilos reutilizáveis do app MotoTrack Mobile.
+Centraliza estilos reutilizáveis do app.
 
-📌 Estrutura organizada por seções:
+📌 Seções:
 - Containers
 - Inputs
 - Botões
@@ -13,9 +14,11 @@ Centraliza estilos reutilizáveis do app MotoTrack Mobile.
 - Cards
 - Headers
 - Auxiliares
+- Home (Dashboard)
+- Utilitários (listStyles / formStyles)
 ============================================================ */
 
-// Tipagem explícita dos estilos
+// Tipagem explícita dos estilos principais
 interface GlobalStyles {
     container: ViewStyle;
     inputContainer: ViewStyle;
@@ -38,6 +41,16 @@ interface GlobalStyles {
     authContainer: ViewStyle;
     langButton: ViewStyle;
     langText: TextStyle;
+
+    // 🔹 Home (Dashboard)
+    homeContainer: ViewStyle;
+    homeHeader: ViewStyle;
+    homeStatusRow: ViewStyle;
+    homeStatusDot: ViewStyle;
+    homeLinkBtn: ViewStyle;
+    homeCardsWrap: ViewStyle;
+    homeCard: ViewStyle;
+    homeFooter: ViewStyle;
 }
 
 const globalStyles = StyleSheet.create<GlobalStyles>({
@@ -82,8 +95,10 @@ const globalStyles = StyleSheet.create<GlobalStyles>({
         marginVertical: 14,
         paddingVertical: 14,
         paddingHorizontal: 24,
+        minHeight: 48,              // Material: target mínimo 48dp
         borderRadius: 12,
         alignItems: "center",
+        justifyContent: "center",
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -92,7 +107,7 @@ const globalStyles = StyleSheet.create<GlobalStyles>({
     },
     buttonText: {
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: "700",          // mais legibilidade
         letterSpacing: 0.5,
     },
 
@@ -182,6 +197,83 @@ const globalStyles = StyleSheet.create<GlobalStyles>({
         alignSelf: "center",
         fontSize: 14,
     },
+
+    // ============================
+    // 🏠 Home (Dashboard)
+    // ============================
+    homeContainer: { flex: 1, paddingHorizontal: 16, gap: 12 },
+    homeHeader: { marginTop: 12, gap: 4 },
+    homeStatusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" },
+    homeStatusDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1 },
+    homeLinkBtn: { paddingHorizontal: 4, paddingVertical: 2 },
+    homeCardsWrap: { flexDirection: "row", gap: 12, marginTop: 12, flexWrap: "wrap" },
+    homeCard: { flex: 1, minWidth: 150, padding: 12, borderWidth: 1, borderRadius: 12 },
+    homeFooter: { paddingBottom: 16, alignItems: "center" },
 });
 
 export default globalStyles;
+
+/* ============================================================
+🧰 Utilitários para List & Form (append-only)
+------------------------------------------------------------
+Use para padronizar listas e formulários.
+Ex.: style={[listStyles.cardOutlined, { backgroundColor: colors.surface, borderColor: colors.border }]}
+============================================================ */
+
+export const listStyles = StyleSheet.create({
+    row: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+    },
+    cardOutlined: {
+        padding: 18,
+        borderRadius: 16,
+        borderWidth: 1,
+        // Defina backgroundColor/borderColor via tema no componente
+    },
+    rowItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        padding: 14,
+        borderWidth: 1,
+        borderRadius: 12,
+        // Defina backgroundColor/borderColor via tema no componente
+    },
+    smallBtn: {
+        minHeight: 40,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    smallBtnDanger: {
+        minHeight: 40,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+});
+
+export const formStyles = StyleSheet.create({
+    card: {
+        padding: 18,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    dangerBtn: {
+        minHeight: 48,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        alignItems: "center",
+    },
+});
