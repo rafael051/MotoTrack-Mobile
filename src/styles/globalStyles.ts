@@ -52,6 +52,13 @@ interface GlobalStyles {
     homeCardsWrap: ViewStyle;
     homeCard: ViewStyle;
     homeFooter: ViewStyle;
+
+    // ➕ NOVOS: Grid e Tiles
+    homeGrid: ViewStyle;
+    homeTile: ViewStyle;
+    homeTileIconWrap: ViewStyle;
+    homeTileCount: TextStyle;
+    homeTileLabel: TextStyle;
 }
 
 const globalStyles = StyleSheet.create<GlobalStyles>({
@@ -96,7 +103,7 @@ const globalStyles = StyleSheet.create<GlobalStyles>({
         marginVertical: 14,
         paddingVertical: 14,
         paddingHorizontal: 24,
-        minHeight: 48,              // Material: target mínimo 48dp
+        minHeight: 48, // Material: target mínimo 48dp
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
@@ -108,7 +115,7 @@ const globalStyles = StyleSheet.create<GlobalStyles>({
     },
     buttonText: {
         fontSize: 16,
-        fontWeight: "700",          // mais legibilidade
+        fontWeight: "700", // mais legibilidade
         letterSpacing: 0.5,
     },
 
@@ -211,13 +218,45 @@ const globalStyles = StyleSheet.create<GlobalStyles>({
     homeCard: { flex: 1, minWidth: 150, padding: 12, borderWidth: 1, borderRadius: 12 },
     homeFooter: { paddingBottom: 16, alignItems: "center" },
 
+    // ➕ NOVOS: Grid e Tiles (base neutra; cores ficam no themedStyles)
+    homeGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 12,
+        justifyContent: "space-between",
+        paddingHorizontal: 4,
+        marginTop: 8,
+    },
+    homeTile: {
+        width: "48%",       // 2 por linha
+        minHeight: 120,
+        borderRadius: 16,
+        padding: 14,
+        justifyContent: "space-between",
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+        borderWidth: 1,     // a cor vem do themedStyles (ring)
+    },
+    homeTileIconWrap: {
+        alignItems: "flex-start",
+    },
+    homeTileCount: {
+        fontSize: 28,
+        fontWeight: "700",
+    },
+    homeTileLabel: {
+        fontSize: 14,
+        fontWeight: "500",
+        opacity: 0.95,
+    },
+
     hintText: {
         fontSize: 12,
         lineHeight: 18,
         marginTop: 6,
     },
-
-
 });
 
 export default globalStyles;
@@ -285,6 +324,84 @@ export const formStyles = StyleSheet.create({
         borderWidth: 1,
         alignItems: "center",
     },
-
-
 });
+
+/* ============================================================
+🔧 Estilos dependentes de tema (sem inline nos componentes)
+------------------------------------------------------------
+Gera estilos com base nas cores do ThemeContext.
+============================================================ */
+export const themedStyles = (colors: any) =>
+    StyleSheet.create({
+        // Textos e seções
+        errorText: {
+            color: colors.error ?? "#EF4444",
+            marginTop: 8,
+        },
+        accountSection: {
+            gap: 12,
+            marginTop: 12,
+        },
+        centeredParagraph: {
+            color: colors.text,
+            textAlign: "center",
+        },
+
+        /* ============================
+           BOTÕES (usam globalStyles.button como base)
+           ============================ */
+        // --- Primary (sólido)
+        btnPrimary: {
+            backgroundColor: colors.primary ?? "#6366F1",
+            borderWidth: 0,
+            borderColor: "transparent",
+            shadowOpacity: colors.scheme === "dark" ? 0.25 : 0.15,
+            elevation: 2,
+        },
+        btnPrimaryText: {
+            color: colors.onPrimary ?? "#FFFFFF",
+        },
+
+        // --- Warning (sólido)
+        btnWarning: {
+            backgroundColor: colors.warning ?? "#F59E0B",
+            borderWidth: 0,
+            borderColor: "transparent",
+            shadowOpacity: colors.scheme === "dark" ? 0.25 : 0.15,
+            elevation: 2,
+        },
+        btnWarningText: {
+            color: colors.onWarning ?? "#FFFFFF",
+        },
+
+        // --- Danger (outline)
+        btnDangerOutline: {
+            // ⚠️ Nunca transparente no Android, senão a elevation pinta branco por baixo.
+            backgroundColor: colors.background, // mantém a “placa” do botão igual ao fundo
+            borderWidth: 2,
+            borderColor: colors.danger ?? "#EF4444",
+            // remove sombra/elevation para não parecer “cartão”
+            shadowColor: "transparent",
+            shadowOpacity: 0,
+            shadowRadius: 0,
+            elevation: 0,
+        },
+        btnDangerOutlineText: {
+            color: colors.danger ?? "#EF4444",
+        },
+
+        /* ============================
+           Tiles (cores dinâmicas)
+           ============================ */
+        homeTileSurface: {
+            backgroundColor: colors.button, // cor única dos módulos
+            borderColor: colors.mode === "dark" ? "#FFFFFF22" : "#00000010", // ring suave
+            shadowColor: colors.mode === "dark" ? "#000000AA" : "#11182722",
+        },
+        homeTilePressed: {
+            opacity: 0.92,
+        },
+        homeTileText: {
+            color: colors.buttonText ?? "#FFFFFF",
+        },
+    });

@@ -1,25 +1,24 @@
-// app/home/index.tsx
+// File: app/home/index.tsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
     View,
     Text,
-    TouchableOpacity,
     ActivityIndicator,
-    StyleSheet,
-    Button,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
     RefreshControl,
+    Pressable,
+    Alert,
 } from "react-native";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { deleteUser } from "firebase/auth";
+import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 
 import { auth } from "../src/services/firebaseConfig";
-import globalStyles from "../src/styles/globalStyles";
+import globalStyles, { themedStyles } from "../src/styles/globalStyles";
 import ThemeToggleButton from "../src/components/ThemeToggleButton";
 import { useTheme } from "../src/context/ThemeContext";
 import {
@@ -53,7 +52,6 @@ const fmtDateTime = (s?: string | null) => {
     return s;
 };
 
-// Tolerância a campos de data com nomes diferentes no DTO
 const pickAgendamentoDate = (a: Agendamento): string | null => {
     // @ts-expect-error — permite chaves opcionais sem quebrar
     return a?.dataHora ?? a?.dataAgendada ?? a?.data ?? a?.inicio ?? null;
@@ -66,8 +64,9 @@ const pickEventoDate = (e: Evento): string | null => {
 /* =========================
    Screen
 ========================= */
-export default function HomeScreen() {
+export default function HomeScreen(): JSX.Element {
     const { colors } = useTheme();
+    const t = themedStyles(colors);
 
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
@@ -78,8 +77,6 @@ export default function HomeScreen() {
     const [eventos, setEventos] = useState<Evento[]>([]);
     const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
-    const [apiOk, setApiOk] = useState<boolean | null>(null);
-    const [pinging, setPinging] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
     const totals = useMemo(
@@ -93,31 +90,6 @@ export default function HomeScreen() {
         [motos, filiais, agendamentos, eventos, usuarios]
     );
 
-    const pingApi = useCallback(async () => {
-        setPinging(true);
-        setApiOk(null);
-        try {
-            const candidates = ["/actuator/health", "/health", "/api/health", "/"];
-            let ok = false;
-            for (const path of candidates) {
-                try {
-                    const res = await fetch(`${API_BASE}${path}`);
-                    if (res.ok) {
-                        ok = true;
-                        break;
-                    }
-                } catch {
-                    /* tenta o próximo */
-                }
-            }
-            setApiOk(ok);
-        } catch {
-            setApiOk(false);
-        } finally {
-            setPinging(false);
-        }
-    }, []);
-
     const carregar = useCallback(async () => {
         setErro(null);
         setLoading(true);
@@ -129,6 +101,10 @@ export default function HomeScreen() {
                 MotoTrack.buscarEventos(),
                 MotoTrack.buscarUsuarios(),
             ]);
+
+            a?.forEach((ag) => fmtDateTime(pickAgendamentoDate(ag) ?? undefined));
+            e?.forEach((ev) => fmtDateTime(pickEventoDate(ev) ?? undefined));
+
             setMotos(m);
             setFiliais(f);
             setAgendamentos(a);
@@ -143,15 +119,14 @@ export default function HomeScreen() {
     }, []);
 
     useEffect(() => {
-        pingApi();
         carregar();
-    }, [pingApi, carregar]);
+    }, [carregar]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([pingApi(), carregar()]);
+        await carregar();
         setRefreshing(false);
-    }, [pingApi, carregar]);
+    }, [carregar]);
 
     const realizarLogoff = async () => {
         await AsyncStorage.removeItem("@user");
@@ -185,14 +160,14 @@ export default function HomeScreen() {
         );
     };
 
-    const lastMoto = motos.at(-1);
-    const lastFilial = filiais.at(-1);
-    const lastAg = agendamentos.at(-1);
-    const lastEv = eventos.at(-1);
-    const lastUser = usuarios.at(-1);
-
     return (
-        <SafeAreaView style={[globalStyles.container, styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView
+            style={[
+                globalStyles.container,
+                globalStyles.homeContainer,
+                { backgroundColor: colors.background },
+            ]}
+        >
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -203,102 +178,98 @@ export default function HomeScreen() {
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 >
                     {/* Cabeçalho */}
-                    <View style={styles.header}>
-                        <Text style={[globalStyles.title, { color: colors.text }]}>MotoTrack</Text>
-                        <Text style={[globalStyles.text, { color: colors.mutedText }]}>
-                            Selecione um módulo para gerenciar itens (listar, incluir, alterar, excluir).
-                        </Text>
+                    <View style={[globalStyles.homeHeader, { marginBottom: 8 }]}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <Ionicons name="speedometer-outline" size={26} color={colors.text} />
+                            <Text style={[globalStyles.title, { color: colors.text }]}>MotoTrack</Text>
+                        </View>
                     </View>
 
-                    {/* Status + Ações */}
-                    <View style={styles.statusRow}>
-                        <Text style={[globalStyles.text, { color: colors.text }]}>Status da API:</Text>
-                        {pinging ? (
-                            <ActivityIndicator />
-                        ) : (
-                            <View
-                                style={[
-                                    styles.statusDot,
-                                    { backgroundColor: apiOk ? "#22C55E" : "#EF4444", borderColor: colors.border },
-                                ]}
-                            />
-                        )}
-                        <TouchableOpacity onPress={pingApi} style={styles.linkBtn}>
-                            <Text style={[globalStyles.link, { color: colors.button }]}>atualizar</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={carregar} style={styles.linkBtn}>
-                            <Text style={[globalStyles.link, { color: colors.button }]}>recarregar dados</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Cards */}
-                    <View style={styles.cardsWrap}>
-                        <Card
-                            title="Motos"
+                    {/* Grid de Módulos */}
+                    <View style={globalStyles.homeGrid}>
+                        <Tile
+                            label="Motos"
                             count={totals.motos}
-                            subtitle={lastMoto ? `Última: ${lastMoto.placa ?? "—"} • ${lastMoto.modelo ?? "—"}` : undefined}
                             onPress={() => router.push("/motos")}
-                            colors={colors}
+                            Icon={() => (
+                                <MaterialCommunityIcons name="motorbike" size={28} color={colors.buttonText} />
+                            )}
+                            t={t}
                         />
-
-                        <Card
-                            title="Filiais"
+                        <Tile
+                            label="Filiais"
                             count={totals.filiais}
-                            subtitle={
-                                lastFilial ? `Última: ${lastFilial.nome ?? "—"} • ${lastFilial.cidade ?? "—"}` : undefined
-                            }
                             onPress={() => router.push("/filiais")}
-                            colors={colors}
+                            Icon={() => <Feather name="map-pin" size={28} color={colors.buttonText} />}
+                            t={t}
                         />
-
-                        <Card
-                            title="Agendamentos"
+                        <Tile
+                            label="Agendamentos"
                             count={totals.agendamentos}
-                            subtitle={
-                                lastAg
-                                    ? `Último: ${fmtDateTime(pickAgendamentoDate(lastAg))} • ${lastAg.status ?? "—"}`
-                                    : undefined
-                            }
                             onPress={() => router.push("/agendamentos/list")}
-                            colors={colors}
+                            Icon={() => (
+                                <MaterialCommunityIcons name="calendar-clock" size={28} color={colors.buttonText} />
+                            )}
+                            t={t}
                         />
-
-                        <Card
-                            title="Eventos"
+                        <Tile
+                            label="Eventos"
                             count={totals.eventos}
-                            subtitle={
-                                lastEv ? `Último: ${lastEv.tipo ?? "—"} • ${fmtDateTime(pickEventoDate(lastEv))}` : undefined
-                            }
                             onPress={() => router.push("/eventos")}
-                            colors={colors}
+                            Icon={() => <Feather name="activity" size={28} color={colors.buttonText} />}
+                            t={t}
                         />
-
-                        <Card
-                            title="Usuários"
+                        <Tile
+                            label="Usuários"
                             count={totals.usuarios}
-                            subtitle={
-                                lastUser ? `Último: ${lastUser.nome ?? "—"} • ${lastUser.email ?? "—"}` : undefined
-                            }
                             onPress={() => router.push("/usuarios")}
-                            colors={colors}
+                            Icon={() => <Feather name="users" size={28} color={colors.buttonText} />}
+                            t={t}
+                        />
+                        <Tile
+                            label="Sobre"
+                            onPress={() => router.push("/sobre")}
+                            Icon={() => (
+                                <MaterialCommunityIcons
+                                    name="information-outline"
+                                    size={28}
+                                    color={colors.buttonText}
+                                />
+                            )}
+                            t={t}
                         />
                     </View>
 
-                    {/* Erro */}
-                    {!!erro && <Text style={[globalStyles.text, { color: "#EF4444", marginTop: 8 }]}>{erro}</Text>}
+                    {/* Loading/Erro */}
+                    {loading && (
+                        <View style={{ paddingVertical: 8 }}>
+                            <ActivityIndicator />
+                        </View>
+                    )}
+                    {!!erro && <Text style={[globalStyles.text, t.errorText]}>{erro}</Text>}
 
                     {/* Conta */}
-                    <View style={{ gap: 8, marginTop: 12 }}>
-                        <Text style={[globalStyles.text, { color: colors.text, textAlign: "center" }]}>
-                            Você está logado.
-                        </Text>
-                        <Button title="Realizar logoff" onPress={realizarLogoff} />
-                        <Button title="Alterar Senha" color="orange" onPress={() => router.push("/AlterarSenhaScreen")} />
-                        <Button title="Excluir Conta" color="red" onPress={excluirConta} />
+                    <View style={[t.accountSection, { marginTop: 12 }]}>
+                        <Text style={[globalStyles.text, t.centeredParagraph]}>Você está logado.</Text>
+
+                        <Pressable onPress={realizarLogoff} style={[globalStyles.button, t.btnPrimary]}>
+                            <Text style={[globalStyles.buttonText, t.btnPrimaryText]}>Realizar logoff</Text>
+                        </Pressable>
+
+                        <Pressable
+                            onPress={() => router.push("/AlterarSenhaScreen")}
+                            style={[globalStyles.button, t.btnWarning]}
+                        >
+                            <Text style={[globalStyles.buttonText, t.btnWarningText]}>Alterar Senha</Text>
+                        </Pressable>
+
+                        <Pressable onPress={excluirConta} style={[globalStyles.button, t.btnDangerOutline]}>
+                            <Text style={[globalStyles.buttonText, t.btnDangerOutlineText]}>Excluir Conta</Text>
+                        </Pressable>
                     </View>
 
                     {/* Rodapé */}
-                    <View style={styles.footer}>
+                    <View style={globalStyles.homeFooter}>
                         <ThemeToggleButton />
                     </View>
                 </ScrollView>
@@ -308,55 +279,26 @@ export default function HomeScreen() {
 }
 
 /* =========================
-   Componentes locais
+   Componentes
 ========================= */
-type CardProps = {
-    title: string;
-    count: number;
-    subtitle?: string;
+type TileProps = {
+    label: string;
     onPress: () => void;
-    colors: ReturnType<typeof useTheme>["colors"];
+    Icon: React.ComponentType;
+    count?: number;
+    t: ReturnType<typeof themedStyles>;
 };
 
-function Card({ title, count, subtitle, onPress, colors }: CardProps) {
+function Tile({ label, count, onPress, Icon, t }: TileProps) {
     return (
-        <TouchableOpacity
-            style={[
-                globalStyles.card,
-                styles.card,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            onPress={onPress}
-            activeOpacity={0.85}
-        >
-            <Text style={[globalStyles.cardModelo, { color: colors.text }]}>{title}</Text>
-            <Text style={[globalStyles.title, { color: colors.text }]}>{count}</Text>
-            {!!subtitle && <Text style={[globalStyles.text, { color: colors.mutedText }]}>{subtitle}</Text>}
-        </TouchableOpacity>
+        <Pressable onPress={onPress} style={({ pressed }) => [globalStyles.homeTile, t.homeTileSurface, pressed && t.homeTilePressed]}>
+            <View style={globalStyles.homeTileIconWrap}>
+                <Icon />
+            </View>
+            {Number.isFinite(count as number) && (
+                <Text style={[globalStyles.homeTileCount, t.homeTileText]}>{count}</Text>
+            )}
+            <Text style={[globalStyles.homeTileLabel, t.homeTileText]}>{label}</Text>
+        </Pressable>
     );
 }
-
-/* =========================
-   Styles
-========================= */
-const styles = StyleSheet.create({
-    container: { flex: 1, paddingHorizontal: 16, gap: 12 },
-    header: { marginTop: 12, gap: 4 },
-    statusRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginTop: 4,
-        flexWrap: "wrap",
-    },
-    statusDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1 },
-    linkBtn: { paddingHorizontal: 4, paddingVertical: 2 },
-    cardsWrap: {
-        flexDirection: "row",
-        gap: 12,
-        marginTop: 12,
-        flexWrap: "wrap",
-    },
-    card: { flex: 1, minWidth: 150, padding: 12, borderWidth: 1, borderRadius: 12 },
-    footer: { paddingBottom: 16, alignItems: "center", marginTop: 16 },
-});

@@ -1,4 +1,4 @@
-// src/services/mototrack.ts
+// File: src/services/mototrack.ts
 import axios, { AxiosRequestConfig } from "axios";
 import {
     montarParamsMotos, type FiltroMotos,
@@ -21,6 +21,11 @@ let API_BASE = (process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://localhost:52
 export function setApiBase(url: string) {
     API_BASE = url;
     api.defaults.baseURL = url;
+}
+
+/** Consultar a base atual (útil para logs/diagnóstico) */
+export function getApiBase() {
+    return API_BASE;
 }
 
 /** Cliente axios */
@@ -52,6 +57,7 @@ const del = async (url: string, c?: Cfg): Promise<void> =>
 
 /** Agendamentos */
 export type Agendamento = {
+    status: string;
     id: number;
     motoId: number;
     dataAgendada: string;  // "dd/MM/yyyy HH:mm:ss"
@@ -126,7 +132,7 @@ export type Moto = {
     modelo?: string | null;
     marca?: string | null;
     ano?: number | null;
-    status?: string | null; // DISPONIVEL | LOCADA | MANUTENCAO (livre no contrato, mas mantenha coerência nas telas)
+    status?: string | null; // DISPONIVEL | LOCADA | MANUTENCAO
     filialId?: number | null;
     latitude?: number | null;
     longitude?: number | null;
@@ -220,6 +226,42 @@ export function capitalizarTexto(texto?: string): string {
 export function formatarValor(valor?: number | string | null): string {
     if (valor === null || valor === undefined || isNaN(Number(valor))) return "N/A";
     return Number(valor).toFixed(2).replace(".", ",");
+}
+
+/** ✅ Aceita ISO e "dd/MM/yyyy HH:mm[:ss]" e devolve `toLocaleString()` ou o original */
+export function fmtDateTime(s?: string | null): string {
+    if (!s) return "—";
+    let d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toLocaleString();
+
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (m) {
+        const [, dd, MM, yyyy, hh = "00", mm = "00", ss = "00"] = m;
+        d = new Date(+yyyy, +MM - 1, +dd, +hh, +mm, +ss);
+        if (!isNaN(d.getTime())) return d.toLocaleString();
+    }
+    return s;
+}
+
+/** 🔎 Tolerância a campos de data com nomes diferentes no DTO */
+export const pickAgendamentoDate = (a: Agendamento): string | null => {
+    // @ts-expect-error — permite chaves opcionais sem quebrar
+    return a?.dataHora ?? a?.dataAgendada ?? a?.data ?? a?.inicio ?? null;
+};
+export const pickEventoDate = (e: Evento): string | null => {
+    // @ts-expect-error — idem
+    return e?.dataHora ?? e?.data ?? e?.quando ?? null;
+};
+
+/** ⏱️ AbortController com timeout embutido (opcional) */
+export function newAbort(ms?: number): AbortController {
+    const controller = new AbortController();
+    if (ms && ms > 0) {
+        const t = setTimeout(() => controller.abort(), ms);
+        // @ts-ignore – attach para GC se necessário
+        controller.__timeout = t;
+    }
+    return controller;
 }
 
 /* ============================================================
