@@ -27,14 +27,13 @@ export function setApiBase(url: string) {
 export const api = axios.create({
     baseURL: API_BASE,
     headers: { Accept: "application/json", "Content-Type": "application/json" },
-    // timeout: 10000,
 });
 
 /** Aceitar AbortController.signal sem quebrar spread */
 type Cfg = { signal?: AbortSignal };
 const withSignal = (c?: Cfg): AxiosRequestConfig => (c?.signal ? { signal: c.signal as any } : {});
 
-/** Helpers HTTP enxutos */
+/** Helpers HTTP */
 const get = async <T>(url: string, params?: any, c?: Cfg): Promise<T> =>
     api.get<T>(url, { ...withSignal(c), params }).then(r => r.data);
 
@@ -42,67 +41,173 @@ const post = async <T>(url: string, data?: any, c?: Cfg): Promise<T> =>
     api.post<T>(url, data, withSignal(c)).then(r => r.data);
 
 const put = async (url: string, data?: any, c?: Cfg): Promise<void> =>
-    api.put(url, data, withSignal(c)).then(() => { /* sem body */ });
+    api.put(url, data, withSignal(c)).then(() => {});
 
 const del = async (url: string, c?: Cfg): Promise<void> =>
-    api.delete(url, withSignal(c)).then(() => { /* sem body */ });
+    api.delete(url, withSignal(c)).then(() => {});
 
 /* ============================
-   Tipos principais (OpenAPI)
+   Tipos principais (ALINHADOS AO OpenAPI)
    ============================ */
-export type Agendamento = { id: number; dataHora: string; status?: string | null };
-export type Evento = { id: number; tipo?: string | null; dataHora: string; motivo?: string | null; localizacao?: string | null };
-export type Filial = { id: number; nome?: string | null; endereco?: string | null; bairro?: string | null; cidade?: string | null; estado?: string | null; cep?: string | null; latitude?: number; longitude?: number };
-export type Moto = { id: number; placa?: string | null; modelo?: string | null; marca?: string | null; ano?: number; status?: string | null };
-export type Usuario = { id: number; nome?: string | null; email?: string | null; perfil?: string | null };
 
-/** Payloads (POST/PUT) */
-export type AgendamentoCreate = Omit<Agendamento, "id">;
-export type AgendamentoUpdate = Partial<Omit<Agendamento, "id">>;
-export type EventoCreate = Omit<Evento, "id">;
-export type EventoUpdate = Partial<Omit<Evento, "id">>;
-export type FilialCreate = Omit<Filial, "id">;
-export type FilialUpdate = Partial<Omit<Filial, "id">>;
-export type MotoCreate = Omit<Moto, "id">;
-export type MotoUpdate = Partial<Omit<Moto, "id">>;
-export type UsuarioCreate = Omit<Usuario, "id">;
-export type UsuarioUpdate = Partial<Omit<Usuario, "id">>;
+/** Agendamentos */
+export type Agendamento = {
+    id: number;
+    motoId: number;
+    dataAgendada: string;  // "dd/MM/yyyy HH:mm:ss"
+    descricao?: string | null;
+    dataCriacao?: string | null;
+};
+export type AgendamentoCreate = {
+    motoId: number;
+    dataAgendada: string;  // "dd/MM/yyyy HH:mm:ss"
+    descricao: string;
+};
+export type AgendamentoUpdate = {
+    dataAgendada: string;  // "dd/MM/yyyy HH:mm:ss"
+    descricao: string;
+};
+
+/** Eventos */
+export type Evento = {
+    id: number;
+    motoId: number;
+    tipo?: string | null;
+    motivo?: string | null;
+    dataHora: string;      // "dd/MM/yyyy HH:mm:ss"
+    localizacao?: string | null;
+};
+export type EventoCreate = {
+    motoId: number;
+    tipo: string;
+    motivo: string;
+    dataHora: string;      // "dd/MM/yyyy HH:mm:ss"
+    localizacao?: string | null;
+};
+export type EventoUpdate = {
+    tipo: string;
+    motivo: string;
+    dataHora: string;      // "dd/MM/yyyy HH:mm:ss"
+    localizacao?: string | null;
+};
+
+/** Filiais */
+export type Filial = {
+    id: number;
+    nome?: string | null;
+    endereco?: string | null;
+    bairro?: string | null;
+    cidade?: string | null;
+    estado?: string | null; // UF
+    cep?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    raioGeofenceMetros?: number | null;
+    /** só em algumas respostas (ex.: GET by id) */
+    motoCount?: number | null;
+};
+export type FilialCreate = {
+    nome: string;
+    endereco?: string | null;
+    bairro?: string | null;
+    cidade?: string | null;
+    estado?: string | null;
+    cep?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    raioGeofenceMetros?: number | null;
+};
+export type FilialUpdate = FilialCreate;
+
+/** Motos */
+export type Moto = {
+    id: number;
+    placa?: string | null;
+    modelo?: string | null;
+    marca?: string | null;
+    ano?: number | null;
+    status?: string | null; // DISPONIVEL | LOCADA | MANUTENCAO (livre no contrato, mas mantenha coerência nas telas)
+    filialId?: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    dataCriacao?: string | null;
+};
+export type MotoCreate = {
+    placa: string;
+    modelo: string;
+    marca: string;
+    ano?: number;
+    status: string;
+    filialId?: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
+};
+export type MotoUpdate = MotoCreate;
+
+/** Usuários */
+export type PerfilUsuario = "OPERADOR" | "GESTOR" | "ADMINISTRADOR";
+export type Usuario = {
+    id: number;
+    nome?: string | null;
+    email?: string | null;
+    perfil?: PerfilUsuario | null;
+    filialId?: number | null;
+};
+export type UsuarioCreate = {
+    nome: string;
+    email: string;
+    senha: string; // apenas no create
+    perfil: PerfilUsuario;
+    filialId?: number | null;
+};
+export type UsuarioUpdate = {
+    nome: string;
+    email: string;
+    perfil: PerfilUsuario;
+    filialId?: number | null;
+};
 
 /* ============================================================
- * Utils de formatação
+ * Utils de data/hora tolerantes a PT-BR
  * ============================================================ */
+const sanitize = (t?: string) => (t ?? "").replace(/[“”"']/g, "").trim();
+
+const tryParsePt = (s: string): Date | null => {
+    // dd/MM/yyyy HH:mm[:ss]
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (!m) return null;
+    const [, dd, mm, yyyy, HH = "00", MI = "00", SS = "00"] = m;
+    const d = new Date(+yyyy, +mm - 1, +dd, +HH, +MI, +SS);
+    return isNaN(+d) ? null : d;
+};
+
+const asDate = (value?: string | Date | null): Date | null => {
+    if (!value) return null;
+    if (value instanceof Date) return isNaN(+value) ? null : value;
+    const raw = sanitize(String(value));
+    return tryParsePt(raw) ?? (isNaN(+new Date(raw)) ? null : new Date(raw));
+};
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
 export function formatarData(data?: string | Date): string {
-    if (!data) return "Não informado";
-    try {
-        const raw = typeof data === "string" ? data : data.toISOString();
-        const date = new Date(String(raw).replace(/\//g, "-"));
-        if (isNaN(+date)) return "Data inválida";
-        const d = String(date.getDate()).padStart(2, "0");
-        const m = String(date.getMonth() + 1).padStart(2, "0");
-        const y = date.getFullYear();
-        return `${d}/${m}/${y}`;
-    } catch {
-        return "Data inválida";
-    }
+    const d = asDate(data);
+    if (!d) return "Não informado";
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 export function formatarHora(data?: string | Date): string {
-    if (!data) return "Não informado";
-    const date = new Date(data);
-    if (isNaN(+date)) return "Hora inválida";
-    const h = String(date.getHours()).padStart(2, "0");
-    const mi = String(date.getMinutes()).padStart(2, "0");
-    return `${h}:${mi}`;
+    const d = asDate(data);
+    if (!d) return "Não informado";
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 export function formatarDataHora(data?: string | Date): string {
-    return `${formatarData(data)} às ${formatarHora(data)}`;
+    const d = asDate(data);
+    if (!d) return "Não informado";
+    return `${formatarData(d)} às ${formatarHora(d)}`;
 }
 export function formatarAnoMes(data?: string | Date): string {
-    if (!data) return "Não informado";
-    const date = new Date(data);
-    if (isNaN(+date)) return "Data inválida";
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const y = date.getFullYear();
-    return `${y}/${m}`;
+    const d = asDate(data);
+    if (!d) return "Não informado";
+    return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}`;
 }
 export function capitalizarTexto(texto?: string): string {
     if (!texto) return "";
@@ -142,6 +247,10 @@ export const MotoTrack = {
     buscarFiliais(filtros: FiltroFiliais = {}, c?: Cfg): Promise<Filial[]> {
         return get<Filial[]>("/api/Filiais", montarParamsFiliais(filtros), c);
     },
+    /** Alias p/ telas (consistência com agendamentos) */
+    getFiliais(c?: Cfg): Promise<Filial[]> {
+        return this.buscarFiliais({}, c);
+    },
     getFilial(id: number, c?: Cfg) {
         return get<Filial>(`/api/Filiais/${id}`, undefined, c);
     },
@@ -159,7 +268,7 @@ export const MotoTrack = {
     buscarAgendamentos(filtros: FiltroAgendamentos = {}, c?: Cfg): Promise<Agendamento[]> {
         return get<Agendamento[]>("/api/Agendamentos", montarParamsAgendamentos(filtros), c);
     },
-    /** Alias para compatibilizar com a tela */
+    /** Alias p/ telas */
     getAgendamentos(c?: Cfg): Promise<Agendamento[]> {
         return MotoTrack.buscarAgendamentos({}, c);
     },
@@ -179,6 +288,10 @@ export const MotoTrack = {
     // ------------- Eventos -----------
     buscarEventos(filtros: FiltroEventos = {}, c?: Cfg): Promise<Evento[]> {
         return get<Evento[]>("/api/Eventos", montarParamsEventos(filtros), c);
+    },
+    /** ✅ Alias para a tela de lista de eventos */
+    getEventos(c?: Cfg): Promise<Evento[]> {
+        return MotoTrack.buscarEventos({}, c);
     },
     getEvento(id: number, c?: Cfg) {
         return get<Evento>(`/api/Eventos/${id}`, undefined, c);

@@ -32,12 +32,40 @@ import {
     setApiBase,
 } from "../src/services/mototrack";
 
-// Mantém a base alinhada com o service em tempo de execução
+/* =========================
+   Config / Utils
+========================= */
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE?.trim() ?? "http://10.0.2.2:5267";
 setApiBase(API_BASE);
 
-const fmtDateTime = (s?: string) => (s ? new Date(s).toLocaleString() : "—");
+// Aceita ISO e "dd/MM/yyyy HH:mm[:ss]"
+const fmtDateTime = (s?: string | null) => {
+    if (!s) return "—";
+    let d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toLocaleString();
 
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (m) {
+        const [, dd, MM, yyyy, hh = "00", mm = "00", ss = "00"] = m;
+        d = new Date(+yyyy, +MM - 1, +dd, +hh, +mm, +ss);
+        if (!isNaN(d.getTime())) return d.toLocaleString();
+    }
+    return s;
+};
+
+// Tolerância a campos de data com nomes diferentes no DTO
+const pickAgendamentoDate = (a: Agendamento): string | null => {
+    // @ts-expect-error — permite chaves opcionais sem quebrar
+    return a?.dataHora ?? a?.dataAgendada ?? a?.data ?? a?.inicio ?? null;
+};
+const pickEventoDate = (e: Evento): string | null => {
+    // @ts-expect-error — idem
+    return e?.dataHora ?? e?.data ?? e?.quando ?? null;
+};
+
+/* =========================
+   Screen
+========================= */
 export default function HomeScreen() {
     const { colors } = useTheme();
 
@@ -66,10 +94,23 @@ export default function HomeScreen() {
     );
 
     const pingApi = useCallback(async () => {
+        setPinging(true);
+        setApiOk(null);
         try {
-            setPinging(true);
-            const res = await fetch(`${API_BASE}/actuator/health`);
-            setApiOk(res.ok);
+            const candidates = ["/actuator/health", "/health", "/api/health", "/"];
+            let ok = false;
+            for (const path of candidates) {
+                try {
+                    const res = await fetch(`${API_BASE}${path}`);
+                    if (res.ok) {
+                        ok = true;
+                        break;
+                    }
+                } catch {
+                    /* tenta o próximo */
+                }
+            }
+            setApiOk(ok);
         } catch {
             setApiOk(false);
         } finally {
@@ -129,14 +170,11 @@ export default function HomeScreen() {
                     onPress: async () => {
                         try {
                             const user = auth.currentUser;
-                            if (user) {
-                                await deleteUser(user);
-                                await AsyncStorage.removeItem("@user");
-                                Alert.alert("Conta Excluída", "Sua conta foi excluída com sucesso.");
-                                router.replace("/");
-                            } else {
-                                Alert.alert("Erro", "Nenhum usuário logado.");
-                            }
+                            if (!user) return Alert.alert("Erro", "Nenhum usuário logado.");
+                            await deleteUser(user);
+                            await AsyncStorage.removeItem("@user");
+                            Alert.alert("Conta Excluída", "Sua conta foi excluída com sucesso.");
+                            router.replace("/");
                         } catch (error) {
                             console.log("Erro ao excluir conta", error);
                             Alert.alert("Erro", "Não foi possível excluir a conta.");
@@ -154,13 +192,7 @@ export default function HomeScreen() {
     const lastUser = usuarios.at(-1);
 
     return (
-        <SafeAreaView
-            style={[
-                globalStyles.container,
-                styles.container,
-                { backgroundColor: colors.background },
-            ]}
-        >
+        <SafeAreaView style={[globalStyles.container, styles.container, { backgroundColor: colors.background }]}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -168,15 +200,11 @@ export default function HomeScreen() {
             >
                 <ScrollView
                     contentContainerStyle={{ paddingBottom: 24 }}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                    }
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 >
                     {/* Cabeçalho */}
                     <View style={styles.header}>
-                        <Text style={[globalStyles.title, { color: colors.text }]}>
-                            MotoTrack
-                        </Text>
+                        <Text style={[globalStyles.title, { color: colors.text }]}>MotoTrack</Text>
                         <Text style={[globalStyles.text, { color: colors.mutedText }]}>
                             Selecione um módulo para gerenciar itens (listar, incluir, alterar, excluir).
                         </Text>
@@ -184,44 +212,31 @@ export default function HomeScreen() {
 
                     {/* Status + Ações */}
                     <View style={styles.statusRow}>
-                        <Text style={[globalStyles.text, { color: colors.text }]}>
-                            Status da API:
-                        </Text>
+                        <Text style={[globalStyles.text, { color: colors.text }]}>Status da API:</Text>
                         {pinging ? (
                             <ActivityIndicator />
                         ) : (
                             <View
                                 style={[
                                     styles.statusDot,
-                                    {
-                                        backgroundColor: apiOk ? "#22C55E" : "#EF4444",
-                                        borderColor: colors.border,
-                                    },
+                                    { backgroundColor: apiOk ? "#22C55E" : "#EF4444", borderColor: colors.border },
                                 ]}
                             />
                         )}
                         <TouchableOpacity onPress={pingApi} style={styles.linkBtn}>
-                            <Text style={[globalStyles.link, { color: colors.button }]}>
-                                atualizar
-                            </Text>
+                            <Text style={[globalStyles.link, { color: colors.button }]}>atualizar</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={carregar} style={styles.linkBtn}>
-                            <Text style={[globalStyles.link, { color: colors.button }]}>
-                                recarregar dados
-                            </Text>
+                            <Text style={[globalStyles.link, { color: colors.button }]}>recarregar dados</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Cards de módulos */}
+                    {/* Cards */}
                     <View style={styles.cardsWrap}>
                         <Card
                             title="Motos"
                             count={totals.motos}
-                            subtitle={
-                                lastMoto
-                                    ? `Última: ${lastMoto.placa ?? "—"} • ${lastMoto.modelo ?? "—"}`
-                                    : undefined
-                            }
+                            subtitle={lastMoto ? `Última: ${lastMoto.placa ?? "—"} • ${lastMoto.modelo ?? "—"}` : undefined}
                             onPress={() => router.push("/motos")}
                             colors={colors}
                         />
@@ -230,9 +245,7 @@ export default function HomeScreen() {
                             title="Filiais"
                             count={totals.filiais}
                             subtitle={
-                                lastFilial
-                                    ? `Última: ${lastFilial.nome ?? "—"} • ${lastFilial.cidade ?? "—"}`
-                                    : undefined
+                                lastFilial ? `Última: ${lastFilial.nome ?? "—"} • ${lastFilial.cidade ?? "—"}` : undefined
                             }
                             onPress={() => router.push("/filiais")}
                             colors={colors}
@@ -243,10 +256,10 @@ export default function HomeScreen() {
                             count={totals.agendamentos}
                             subtitle={
                                 lastAg
-                                    ? `Último: ${fmtDateTime(lastAg.dataHora)} • ${lastAg.status ?? "—"}`
+                                    ? `Último: ${fmtDateTime(pickAgendamentoDate(lastAg))} • ${lastAg.status ?? "—"}`
                                     : undefined
                             }
-                            onPress={() => router.push("/agendamentos")} // redireciona para /agendamentos/list
+                            onPress={() => router.push("/agendamentos/list")}
                             colors={colors}
                         />
 
@@ -254,9 +267,7 @@ export default function HomeScreen() {
                             title="Eventos"
                             count={totals.eventos}
                             subtitle={
-                                lastEv
-                                    ? `Último: ${lastEv.tipo ?? "—"} • ${fmtDateTime(lastEv.dataHora)}`
-                                    : undefined
+                                lastEv ? `Último: ${lastEv.tipo ?? "—"} • ${fmtDateTime(pickEventoDate(lastEv))}` : undefined
                             }
                             onPress={() => router.push("/eventos")}
                             colors={colors}
@@ -266,9 +277,7 @@ export default function HomeScreen() {
                             title="Usuários"
                             count={totals.usuarios}
                             subtitle={
-                                lastUser
-                                    ? `Último: ${lastUser.nome ?? "—"} • ${lastUser.email ?? "—"}`
-                                    : undefined
+                                lastUser ? `Último: ${lastUser.nome ?? "—"} • ${lastUser.email ?? "—"}` : undefined
                             }
                             onPress={() => router.push("/usuarios")}
                             colors={colors}
@@ -276,28 +285,15 @@ export default function HomeScreen() {
                     </View>
 
                     {/* Erro */}
-                    {!!erro && (
-                        <Text style={[globalStyles.text, { color: "#EF4444", marginTop: 8 }]}>
-                            {erro}
-                        </Text>
-                    )}
+                    {!!erro && <Text style={[globalStyles.text, { color: "#EF4444", marginTop: 8 }]}>{erro}</Text>}
 
                     {/* Conta */}
                     <View style={{ gap: 8, marginTop: 12 }}>
-                        <Text
-                            style={[
-                                globalStyles.text,
-                                { color: colors.text, textAlign: "center" },
-                            ]}
-                        >
+                        <Text style={[globalStyles.text, { color: colors.text, textAlign: "center" }]}>
                             Você está logado.
                         </Text>
                         <Button title="Realizar logoff" onPress={realizarLogoff} />
-                        <Button
-                            title="Alterar Senha"
-                            color="orange"
-                            onPress={() => router.push("/AlterarSenhaScreen")}
-                        />
+                        <Button title="Alterar Senha" color="orange" onPress={() => router.push("/AlterarSenhaScreen")} />
                         <Button title="Excluir Conta" color="red" onPress={excluirConta} />
                     </View>
 
@@ -311,8 +307,9 @@ export default function HomeScreen() {
     );
 }
 
-/** ---------- Components locais ---------- */
-
+/* =========================
+   Componentes locais
+========================= */
 type CardProps = {
     title: string;
     count: number;
@@ -334,14 +331,14 @@ function Card({ title, count, subtitle, onPress, colors }: CardProps) {
         >
             <Text style={[globalStyles.cardModelo, { color: colors.text }]}>{title}</Text>
             <Text style={[globalStyles.title, { color: colors.text }]}>{count}</Text>
-            {!!subtitle && (
-                <Text style={[globalStyles.text, { color: colors.mutedText }]}>{subtitle}</Text>
-            )}
+            {!!subtitle && <Text style={[globalStyles.text, { color: colors.mutedText }]}>{subtitle}</Text>}
         </TouchableOpacity>
     );
 }
 
-/** ---------- Styles ---------- */
+/* =========================
+   Styles
+========================= */
 const styles = StyleSheet.create({
     container: { flex: 1, paddingHorizontal: 16, gap: 12 },
     header: { marginTop: 12, gap: 4 },

@@ -1,12 +1,15 @@
-import React, { useCallback, useMemo, useState } from "react";
+// File: app/eventos/list.tsx
+import React, { useCallback, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, ActivityIndicator, Alert, FlatList, Pressable } from "react-native";
+import {
+    View, Text, ActivityIndicator, Alert, FlatList, Pressable,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../src/context/ThemeContext";
 import globalStyles, { listStyles } from "../../src/styles/globalStyles";
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
-import { MotoTrack, type Agendamento } from "../../src/services/mototrack";
+import { MotoTrack, type Evento } from "../../src/services/mototrack";
 
 /* =========================
    🧰 Helpers de Data/Hora
@@ -14,8 +17,10 @@ import { MotoTrack, type Agendamento } from "../../src/services/mototrack";
 const sanitize = (t?: string) => (t ?? "").replace(/[“”"']/g, "").trim();
 
 const tryParsePt = (s: string): Date | null => {
-    // dd/mm/aaaa hh:mm[:ss]
-    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    // dd/mm/aaaa [hh:mm[:ss]]
+    const m = s.match(
+        /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/
+    );
     if (!m) return null;
     const [, dd, mm, yyyy, HH = "00", MI = "00", SS = "00"] = m;
     const d = new Date(+yyyy, +mm - 1, +dd, +HH, +MI, +SS);
@@ -28,11 +33,11 @@ const asDate = (value?: string | Date | null): Date | null => {
 
     const raw = sanitize(String(value));
 
-    // tenta pt-BR primeiro
+    // tenta PT-BR primeiro
     const pt = tryParsePt(raw);
     if (pt) return pt;
 
-    // tenta Date nativo (ISO com/sem offset, epoch string, etc.)
+    // tenta nativo (ISO, epoch string etc.)
     const d = new Date(raw);
     return isNaN(+d) ? null : d;
 };
@@ -49,11 +54,11 @@ const formatPt = (d: Date, showSecondsIfAny = true) => {
     return `${dd}/${mm}/${yyyy} ${HH}:${MI}`;
 };
 
-export default function AgendamentosList() {
+export default function EventosList() {
     const { colors } = useTheme();
     const router = useRouter();
 
-    const [itens, setItens] = useState<Agendamento[]>([]);
+    const [itens, setItens] = useState<Evento[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
 
@@ -61,15 +66,18 @@ export default function AgendamentosList() {
         setErro(null);
         setLoading(true);
         try {
-            const data = await MotoTrack.getAgendamentos();
+            const data = await MotoTrack.getEventos(); // retorna EventoListItem[]
 
-            // ordena por data (desc), usando os helpers (tolerante a formatos)
-            const withSort = [...data].sort((a, b) => {
-                const aRaw = (a as any).dataHora ?? (a as any).dataAgendada ?? "";
-                const bRaw = (b as any).dataHora ?? (b as any).dataAgendada ?? "";
-                const aD = asDate(aRaw)?.getTime() ?? 0;
-                const bD = asDate(bRaw)?.getTime() ?? 0;
-                return bD - aD;
+            // Ordena por data desc (campo `dataHora` no formato PT-BR "dd/MM/yyyy HH:mm:ss")
+            // e, em caso de empate/ausência, usa o id desc como critério secundário.
+            const withSort = [...(Array.isArray(data) ? data : [])].sort((a, b) => {
+                const aRaw = (a as any).dataHora ?? "";
+                const bRaw = (b as any).dataHora ?? "";
+                const aTime = asDate(aRaw)?.getTime() ?? 0;
+                const bTime = asDate(bRaw)?.getTime() ?? 0;
+
+                if (bTime !== aTime) return bTime - aTime;
+                return ((b as any).id ?? 0) - ((a as any).id ?? 0);
             });
 
             setItens(withSort);
@@ -82,6 +90,7 @@ export default function AgendamentosList() {
         }
     }, []);
 
+
     useFocusEffect(
         useCallback(() => {
             void carregar();
@@ -89,9 +98,9 @@ export default function AgendamentosList() {
         }, [carregar])
     );
 
-    const novo = () => router.push("/agendamentos/form");
+    const novo = () => router.push("/eventos/form");
     const editar = (id: number) =>
-        router.push({ pathname: "/agendamentos/form", params: { id: String(id) } });
+        router.push({ pathname: "/eventos/form", params: { id: String(id) } });
 
     const excluir = async (id: number) => {
         const ok = await new Promise<boolean>((resolve) => {
@@ -102,7 +111,7 @@ export default function AgendamentosList() {
         });
         if (!ok) return;
         try {
-            await MotoTrack.deleteAgendamento(id);
+            await MotoTrack.deleteEvento(id);
             carregar();
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "Não foi possível excluir";
@@ -110,42 +119,44 @@ export default function AgendamentosList() {
         }
     };
 
-    const renderItem = ({ item }: { item: Agendamento }) => {
-        // aceita dataHora (preferido) ou dataAgendada (fallback)
-        const rawData =
-            (item as any).dataHora ??
-            (item as any).dataAgendada ??
-            "";
-
-        const d = asDate(rawData);
+    const renderItem = ({ item }: { item: Evento }) => {
+        const raw = (item as any).dataHora ?? "";
+        const d = asDate(raw);
         const quando = d ? formatPt(d, true) : "—";
+
+        const id = (item as any).id;
         const motoId = (item as any).motoId ?? "—";
-        const descricao = (item as any).descricao ?? "—";
+        const tipo = (item as any).tipo ?? "—";
+        const motivo = (item as any).motivo ?? "—";
 
         return (
             <Pressable
                 android_ripple={{ color: colors.ripple }}
-                onPress={() => editar(item.id)}
+                onPress={() => editar(id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Editar agendamento ${item.id}`}
+                accessibilityLabel={`Editar evento ${id}`}
                 style={[
                     listStyles.rowItem,
                     { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
             >
                 <View style={{ flex: 1 }}>
-                    <Text style={[globalStyles.cardPlaca, { color: colors.text }]}>#{item.id}</Text>
+                    <Text style={[globalStyles.cardPlaca, { color: colors.text }]}>#{id}</Text>
                     <Text style={[globalStyles.text, { color: colors.text }]}>Data/Hora: {quando}</Text>
                     <Text style={[globalStyles.text, { color: colors.mutedText }]}>Moto ID: {motoId}</Text>
-                    <Text style={[globalStyles.text, { color: colors.mutedText }]} numberOfLines={2}>
-                        {descricao}
+                    <Text style={[globalStyles.text, { color: colors.mutedText }]}>Tipo: {tipo}</Text>
+                    <Text
+                        style={[globalStyles.text, { color: colors.mutedText }]}
+                        numberOfLines={2}
+                    >
+                        {motivo}
                     </Text>
                 </View>
 
                 <View style={{ gap: 8 }}>
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
-                        onPress={() => editar(item.id)}
+                        onPress={() => editar(id)}
                         style={[
                             listStyles.smallBtn,
                             { backgroundColor: colors.surface, borderColor: colors.border },
@@ -156,7 +167,7 @@ export default function AgendamentosList() {
 
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
-                        onPress={() => excluir(item.id)}
+                        onPress={() => excluir(id)}
                         style={[
                             listStyles.smallBtnDanger,
                             { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder },
@@ -169,8 +180,7 @@ export default function AgendamentosList() {
         );
     };
 
-    // memoiza para evitar re-render desnecessário
-    const keyExtractor = useCallback((i: Agendamento) => String(i.id), []);
+    const keyExtractor = useCallback((i: Evento) => String((i as any).id), []);
 
     return (
         <SafeAreaView style={[globalStyles.container, { backgroundColor: colors.background }]}>
@@ -178,10 +188,10 @@ export default function AgendamentosList() {
                 {/* Cabeçalho */}
                 <View>
                     <Text accessibilityRole="header" style={[globalStyles.title, { color: colors.text }]}>
-                        📅 Agendamentos
+                        📌 Eventos
                     </Text>
                     <Text style={[globalStyles.text, { color: colors.mutedText }]}>
-                        Gerencie seus agendamentos.
+                        Registros de manutenção, sinistro e outros eventos.
                     </Text>
                 </View>
 
@@ -189,7 +199,7 @@ export default function AgendamentosList() {
                 <View style={listStyles.row}>
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Criar novo agendamento"
+                        accessibilityLabel="Criar novo evento"
                         android_ripple={{ color: colors.ripple }}
                         style={[globalStyles.button, { backgroundColor: colors.button }]}
                         onPress={novo}
@@ -199,7 +209,7 @@ export default function AgendamentosList() {
 
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Atualizar lista de agendamentos"
+                        accessibilityLabel="Atualizar lista de eventos"
                         android_ripple={{ color: colors.ripple }}
                         style={[
                             globalStyles.button,
@@ -233,7 +243,9 @@ export default function AgendamentosList() {
                                 keyExtractor={keyExtractor}
                                 ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
                                 ListEmptyComponent={
-                                    <Text style={[globalStyles.text, { color: colors.mutedText, textAlign: "center" }]}>
+                                    <Text
+                                        style={[globalStyles.text, { color: colors.mutedText, textAlign: "center" }]}
+                                    >
                                         Nenhum registro encontrado.
                                     </Text>
                                 }

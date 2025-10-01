@@ -1,21 +1,70 @@
 // src/utils/montarParametrosMotoTrack.ts
 
 /**
- * Normaliza datas para ISO (yyyy-mm-ddTHH:mm:ss.sssZ) ou yyyy-mm-dd quando possível.
- */
-function toISO(input?: string | Date): string | undefined {
-    if (!input) return undefined;
-    const d = input instanceof Date ? input : new Date(String(input).replace(/\//g, "-"));
-    return isNaN(+d) ? undefined : d.toISOString();
-}
-
-/**
- * Remove chaves com valores undefined/null/"" (útil para limpar params).
+ * Compacta objeto removendo undefined/null/""
  */
 function compact(obj: Record<string, any>): Record<string, any> {
     return Object.fromEntries(
         Object.entries(obj).filter(([_, v]) => v !== undefined && v !== null && v !== "")
     );
+}
+
+/* ============================================================================
+   Datas no padrão PT-BR esperado pela API
+   - Sempre "dd/MM/yyyy HH:mm:ss" para filtros com hora
+   - Se só houver data, use "dd/MM/yyyy"
+   ============================================================================ */
+
+const pad2 = (v: number | string) => String(v).padStart(2, "0");
+const pad4 = (v: number | string) => String(v).padStart(4, "0");
+
+/** Tenta criar um Date a partir de:
+ *  - Date
+ *  - "dd/MM/yyyy HH:mm[:ss]"
+ *  - "dd/MM/yyyy"
+ *  - Qualquer string parseável pelo JS Date (fallback)
+ */
+function toDateSafe(input?: string | Date): Date | undefined {
+    if (!input) return undefined;
+    if (input instanceof Date) return isNaN(+input) ? undefined : input;
+
+    const s = String(input).trim();
+
+    // dd/MM/yyyy HH:mm[:ss]
+    const m1 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+    if (m1) {
+        const [, dd, mm, yyyy, HH, MI, SS = "00"] = m1;
+        const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(HH), Number(MI), Number(SS));
+        return isNaN(+d) ? undefined : d;
+    }
+
+    // dd/MM/yyyy
+    const m2 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m2) {
+        const [, dd, mm, yyyy] = m2;
+        const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd), 0, 0, 0);
+        return isNaN(+d) ? undefined : d;
+    }
+
+    // Fallback: deixar o JS tentar
+    const d = new Date(s);
+    return isNaN(+d) ? undefined : d;
+}
+
+/** Formata para "dd/MM/yyyy" */
+function toPtBrDate(input?: string | Date): string | undefined {
+    const d = toDateSafe(input);
+    if (!d) return undefined;
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${pad4(d.getFullYear())}`;
+}
+
+/** Formata para "dd/MM/yyyy HH:mm:ss"
+ *  (se segundos ausentes, completa com :00)
+ */
+function toPtBrDateTime(input?: string | Date): string | undefined {
+    const d = toDateSafe(input);
+    if (!d) return undefined;
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${pad4(d.getFullYear())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
 
 /* ================================
@@ -73,12 +122,15 @@ export function montarParamsFiliais(f: FiltroFiliais = {}) {
 
 /* ================================
    Agendamentos
-   fields: status, dataInicio, dataFim (range)
+   Lista (GET /api/Agendamentos) retorna: id, motoId, dataAgendada, descricao
+   Filtros sugeridos: motoId, descricao, dataInicio, dataFim
+   (datas em PT-BR "dd/MM/yyyy HH:mm:ss")
    ================================ */
 export type FiltroAgendamentos = {
-    status?: string;
-    dataInicio?: string | Date;
-    dataFim?: string | Date;
+    motoId?: number | string;
+    descricao?: string;
+    dataInicio?: string | Date; // início do range (PT-BR)
+    dataFim?: string | Date;    // fim do range (PT-BR)
     limit?: number;
     offset?: number;
     sort?: string;
@@ -86,9 +138,10 @@ export type FiltroAgendamentos = {
 
 export function montarParamsAgendamentos(f: FiltroAgendamentos = {}) {
     return compact({
-        status: f.status,
-        dataInicio: toISO(f.dataInicio),
-        dataFim: toISO(f.dataFim),
+        motoId: f.motoId,
+        descricao: f.descricao,
+        dataInicio: toPtBrDateTime(f.dataInicio),
+        dataFim: toPtBrDateTime(f.dataFim),
         limit: f.limit,
         offset: f.offset,
         sort: f.sort,
@@ -98,6 +151,7 @@ export function montarParamsAgendamentos(f: FiltroAgendamentos = {}) {
 /* ================================
    Eventos
    fields: tipo, localizacao, dataInicio, dataFim
+   (datas em PT-BR "dd/MM/yyyy HH:mm:ss")
    ================================ */
 export type FiltroEventos = {
     tipo?: string;
@@ -113,8 +167,8 @@ export function montarParamsEventos(f: FiltroEventos = {}) {
     return compact({
         tipo: f.tipo,
         localizacao: f.localizacao,
-        dataInicio: toISO(f.dataInicio),
-        dataFim: toISO(f.dataFim),
+        dataInicio: toPtBrDateTime(f.dataInicio),
+        dataFim: toPtBrDateTime(f.dataFim),
         limit: f.limit,
         offset: f.offset,
         sort: f.sort,
@@ -144,3 +198,10 @@ export function montarParamsUsuarios(f: FiltroUsuarios = {}) {
         sort: f.sort,
     });
 }
+
+// Exports utilitários (se precisar em outros pontos)
+export const DateUtilsPtBr = {
+    toDateSafe,
+    toPtBrDate,
+    toPtBrDateTime,
+};

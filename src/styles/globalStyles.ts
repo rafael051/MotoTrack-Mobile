@@ -20,6 +20,7 @@ Centraliza estilos reutilizáveis do app.
 
 // Tipagem explícita dos estilos principais
 interface GlobalStyles {
+    hintText: TextStyle;
     container: ViewStyle;
     inputContainer: ViewStyle;
     inputLabel: TextStyle;
@@ -209,6 +210,14 @@ const globalStyles = StyleSheet.create<GlobalStyles>({
     homeCardsWrap: { flexDirection: "row", gap: 12, marginTop: 12, flexWrap: "wrap" },
     homeCard: { flex: 1, minWidth: 150, padding: 12, borderWidth: 1, borderRadius: 12 },
     homeFooter: { paddingBottom: 16, alignItems: "center" },
+
+    hintText: {
+        fontSize: 12,
+        lineHeight: 18,
+        marginTop: 6,
+    },
+
+
 });
 
 export default globalStyles;
@@ -276,4 +285,6 @@ export const formStyles = StyleSheet.create({
         borderWidth: 1,
         alignItems: "center",
     },
+
+
 });

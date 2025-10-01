@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
+// File: app/motos/list.tsx
+import React, { useCallback, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, ActivityIndicator, Alert, FlatList, Pressable } from "react-native";
 import { useRouter } from "expo-router";
@@ -6,54 +7,21 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../src/context/ThemeContext";
 import globalStyles, { listStyles } from "../../src/styles/globalStyles";
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
-import { MotoTrack, type Agendamento } from "../../src/services/mototrack";
+import { MotoTrack, type Moto } from "../../src/services/mototrack";
 
 /* =========================
-   🧰 Helpers de Data/Hora
+   🧰 Helpers
    ========================= */
-const sanitize = (t?: string) => (t ?? "").replace(/[“”"']/g, "").trim();
+const sanitize = (t?: string | null) => (t ?? "").replace(/[“”"']/g, "").trim();
+const showStr = (v?: string | null) => (sanitize(v) || "—");
+const showInt = (n?: number | null) => (typeof n === "number" && Number.isFinite(n) ? String(n) : "—");
+const maskPlaca = (v?: string | null) => showStr(v).toUpperCase().replace(/[^A-Z0-9-]/g, "");
 
-const tryParsePt = (s: string): Date | null => {
-    // dd/mm/aaaa hh:mm[:ss]
-    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
-    if (!m) return null;
-    const [, dd, mm, yyyy, HH = "00", MI = "00", SS = "00"] = m;
-    const d = new Date(+yyyy, +mm - 1, +dd, +HH, +MI, +SS);
-    return isNaN(+d) ? null : d;
-};
-
-const asDate = (value?: string | Date | null): Date | null => {
-    if (!value) return null;
-    if (value instanceof Date) return isNaN(+value) ? null : value;
-
-    const raw = sanitize(String(value));
-
-    // tenta pt-BR primeiro
-    const pt = tryParsePt(raw);
-    if (pt) return pt;
-
-    // tenta Date nativo (ISO com/sem offset, epoch string, etc.)
-    const d = new Date(raw);
-    return isNaN(+d) ? null : d;
-};
-
-const formatPt = (d: Date, showSecondsIfAny = true) => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const dd = pad(d.getDate());
-    const mm = pad(d.getMonth() + 1);
-    const yyyy = d.getFullYear();
-    const HH = pad(d.getHours());
-    const MI = pad(d.getMinutes());
-    const SS = pad(d.getSeconds());
-    if (showSecondsIfAny && SS !== "00") return `${dd}/${mm}/${yyyy} ${HH}:${MI}:${SS}`;
-    return `${dd}/${mm}/${yyyy} ${HH}:${MI}`;
-};
-
-export default function AgendamentosList() {
+export default function MotosList() {
     const { colors } = useTheme();
     const router = useRouter();
 
-    const [itens, setItens] = useState<Agendamento[]>([]);
+    const [itens, setItens] = useState<Moto[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
 
@@ -61,18 +29,13 @@ export default function AgendamentosList() {
         setErro(null);
         setLoading(true);
         try {
-            const data = await MotoTrack.getAgendamentos();
-
-            // ordena por data (desc), usando os helpers (tolerante a formatos)
-            const withSort = [...data].sort((a, b) => {
-                const aRaw = (a as any).dataHora ?? (a as any).dataAgendada ?? "";
-                const bRaw = (b as any).dataHora ?? (b as any).dataAgendada ?? "";
-                const aD = asDate(aRaw)?.getTime() ?? 0;
-                const bD = asDate(bRaw)?.getTime() ?? 0;
-                return bD - aD;
-            });
-
-            setItens(withSort);
+            // Se tiver criado alias getMotos no service, usa; senão, buscarMotos()
+            const data = (await (MotoTrack as any).getMotos?.()) ?? (await MotoTrack.buscarMotos());
+            // Ordena por placa ASC (case-insensitive)
+            const sorted = [...data].sort((a, b) =>
+                showStr(a.placa).localeCompare(showStr(b.placa), "pt-BR", { sensitivity: "base" })
+            );
+            setItens(sorted);
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "Falha ao carregar";
             setErro(msg);
@@ -89,9 +52,9 @@ export default function AgendamentosList() {
         }, [carregar])
     );
 
-    const novo = () => router.push("/agendamentos/form");
+    const novo = () => router.push("/motos/form");
     const editar = (id: number) =>
-        router.push({ pathname: "/agendamentos/form", params: { id: String(id) } });
+        router.push({ pathname: "/motos/form", params: { id: String(id) } });
 
     const excluir = async (id: number) => {
         const ok = await new Promise<boolean>((resolve) => {
@@ -102,50 +65,51 @@ export default function AgendamentosList() {
         });
         if (!ok) return;
         try {
-            await MotoTrack.deleteAgendamento(id);
-            carregar();
+            await MotoTrack.deleteMoto(id);
+            void carregar();
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "Não foi possível excluir";
             Alert.alert("Erro", msg);
         }
     };
 
-    const renderItem = ({ item }: { item: Agendamento }) => {
-        // aceita dataHora (preferido) ou dataAgendada (fallback)
-        const rawData =
-            (item as any).dataHora ??
-            (item as any).dataAgendada ??
-            "";
-
-        const d = asDate(rawData);
-        const quando = d ? formatPt(d, true) : "—";
-        const motoId = (item as any).motoId ?? "—";
-        const descricao = (item as any).descricao ?? "—";
+    const renderItem = ({ item }: { item: Moto }) => {
+        const id = item.id;
+        const placa = maskPlaca(item.placa);
+        const modelo = showStr(item.modelo);
+        const marca = showStr(item.marca);
+        const ano = showInt(item.ano);
+        const status = showStr(item.status);
 
         return (
             <Pressable
                 android_ripple={{ color: colors.ripple }}
-                onPress={() => editar(item.id)}
+                onPress={() => editar(id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Editar agendamento ${item.id}`}
+                accessibilityLabel={`Editar moto ${placa}`}
                 style={[
                     listStyles.rowItem,
                     { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
             >
                 <View style={{ flex: 1 }}>
-                    <Text style={[globalStyles.cardPlaca, { color: colors.text }]}>#{item.id}</Text>
-                    <Text style={[globalStyles.text, { color: colors.text }]}>Data/Hora: {quando}</Text>
-                    <Text style={[globalStyles.text, { color: colors.mutedText }]}>Moto ID: {motoId}</Text>
-                    <Text style={[globalStyles.text, { color: colors.mutedText }]} numberOfLines={2}>
-                        {descricao}
+                    <Text style={[globalStyles.cardPlaca, { color: colors.text }]} numberOfLines={1}>
+                        {placa}
+                    </Text>
+
+                    <Text style={[globalStyles.text, { color: colors.text }]} numberOfLines={1}>
+                        {modelo}{modelo !== "—" && marca !== "—" ? " • " : ""}{marca}
+                    </Text>
+
+                    <Text style={[globalStyles.text, { color: colors.mutedText }]} numberOfLines={1}>
+                        Ano: {ano}  •  Status: {status}
                     </Text>
                 </View>
 
                 <View style={{ gap: 8 }}>
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
-                        onPress={() => editar(item.id)}
+                        onPress={() => editar(id)}
                         style={[
                             listStyles.smallBtn,
                             { backgroundColor: colors.surface, borderColor: colors.border },
@@ -156,7 +120,7 @@ export default function AgendamentosList() {
 
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
-                        onPress={() => excluir(item.id)}
+                        onPress={() => excluir(id)}
                         style={[
                             listStyles.smallBtnDanger,
                             { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder },
@@ -169,8 +133,7 @@ export default function AgendamentosList() {
         );
     };
 
-    // memoiza para evitar re-render desnecessário
-    const keyExtractor = useCallback((i: Agendamento) => String(i.id), []);
+    const keyExtractor = useCallback((i: Moto) => String(i.id), []);
 
     return (
         <SafeAreaView style={[globalStyles.container, { backgroundColor: colors.background }]}>
@@ -178,10 +141,10 @@ export default function AgendamentosList() {
                 {/* Cabeçalho */}
                 <View>
                     <Text accessibilityRole="header" style={[globalStyles.title, { color: colors.text }]}>
-                        📅 Agendamentos
+                        🏍️ Motos
                     </Text>
                     <Text style={[globalStyles.text, { color: colors.mutedText }]}>
-                        Gerencie seus agendamentos.
+                        Gerencie sua frota: placa, modelo, marca, ano e status.
                     </Text>
                 </View>
 
@@ -189,17 +152,17 @@ export default function AgendamentosList() {
                 <View style={listStyles.row}>
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Criar novo agendamento"
+                        accessibilityLabel="Cadastrar nova moto"
                         android_ripple={{ color: colors.ripple }}
                         style={[globalStyles.button, { backgroundColor: colors.button }]}
                         onPress={novo}
                     >
-                        <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>➕ Novo</Text>
+                        <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>➕ Nova</Text>
                     </Pressable>
 
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Atualizar lista de agendamentos"
+                        accessibilityLabel="Atualizar lista de motos"
                         android_ripple={{ color: colors.ripple }}
                         style={[
                             globalStyles.button,
@@ -223,9 +186,7 @@ export default function AgendamentosList() {
                     ) : (
                         <>
                             {!!erro && (
-                                <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
-                                    {erro}
-                                </Text>
+                                <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>{erro}</Text>
                             )}
 
                             <FlatList
@@ -238,6 +199,8 @@ export default function AgendamentosList() {
                                     </Text>
                                 }
                                 renderItem={renderItem}
+                                refreshing={loading}
+                                onRefresh={carregar}
                             />
                         </>
                     )}
