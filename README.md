@@ -1,87 +1,91 @@
-# 🏍️ MotoTrack - Gestão Inteligente e Mapeamento de Motos
+# 🏍️ MotoTrack Mobile - Gestão Inteligente e Mapeamento de Motos
 
 ---
 
 ## 🎯 Descrição do Projeto
 
-**MotoTrack** é um aplicativo móvel desenvolvido com **React Native e Expo**, como parte da disciplina **Mobile Application Development**.
+O **MotoTrack Mobile** é um aplicativo desenvolvido em **React Native + Expo Router**, como parte da disciplina **Mobile Application Development (FIAP 2025)**.  
+O sistema tem como objetivo oferecer um **mapeamento inteligente e gestão de motos em pátios**, permitindo o controle completo de ativos, filiais, agendamentos, eventos e usuários.
 
-O projeto funciona como um sistema de **mapeamento inteligente e gestão de motos**, com funcionalidades que incluem cadastro, listagem, detalhamento, preferências de usuário, armazenamento local e navegação fluida entre telas. Agora também com gestão de **Pátios** e uma tela **Sobre**.
-
-**Objetivos principais:**
-
-- ✅ Navegação eficiente entre múltiplas telas.
-- ✅ Manipulação dinâmica de estados com React Hooks.
-- ✅ Persistência local segura utilizando `AsyncStorage`.
-- ✅ Código modular e organizado com componentes reutilizáveis.
-- ✅ Interface clara e intuitiva.
-- ✅ Validações robustas para garantir integridade dos dados.
+### ✨ Destaques do Projeto
+- Dashboard (Home) moderno com **tiles padronizados** para cada módulo.
+- CRUD completo para **Motos, Filiais, Agendamentos, Eventos e Usuários**.
+- Tela **Sobre**, apresentando informações do projeto, tecnologias e desenvolvedores.
+- Suporte a **tema claro/escuro** via `ThemeContext`.
+- Integração com **Firebase Auth** para autenticação.
+- **AsyncStorage** para persistência local de preferências.
+- **Estilos centralizados** com `globalStyles` e variantes de tema em `themedStyles`.
 
 ---
 
-## 👥 Integrantes
+## 👥 Desenvolvedores
 
-- **Nome:** Rafael Rodrigues de Almeida
-- **RM:** 557837
-
-- **Nome:** Lucas Kenji Miyahira
-- **RM:** 555368
+- 👨‍💻 **Rafael Rodrigues de Almeida** — RM: 557837
+- 👨‍💻 **Lucas Kenji Miyahira** — RM: 555368
 
 ---
 
 ## ✅ Funcionalidades Implementadas
 
-- ✅ **Navegação entre telas (React Navigation):**
-  - Home (menu principal)
-  - Cadastro de Moto
-  - Listagem de Motos
-  - Detalhes da Moto
-  - Preferências do Usuário
-  - Cadastro de Pátio
-  - Sobre o App
+- **Home (Dashboard):**
+    - Grid responsivo de módulos com ícones e contadores dinâmicos.
+    - Acesso rápido a Motos, Filiais, Agendamentos, Eventos, Usuários e Sobre.
 
-- ✅ **Formulário interativo** com manipulação de estado (`useState`).
+- **CRUD Completo:**
+    - Cadastro, listagem, atualização e exclusão de entidades.
+    - Validações robustas (placa, UF, CEP, e-mail).
 
-- ✅ **Validações robustas**:
-  - Placa no padrão nacional.
-  - UF com 2 letras.
-  - CEP numérico com 8 dígitos.
+- **Gestão de Usuários:**
+    - Cadastro com perfis (Operador, Gestor, Administrador).
+    - Alteração de senha, logoff e exclusão de conta.
 
-- ✅ **Armazenamento local** persistente com `AsyncStorage`.
-
-- ✅ **Componentes reutilizáveis** (`FormInput`, `MotoCard`).
-
-- ✅ **Estilos modularizados** usando arquivos separados (`globalStyles.js`).
-
-- ✅ **Tela Sobre** com informações do projeto e desenvolvedores.
+- **Tela Sobre:**
+    - Informações institucionais do projeto.
+    - Lista de tecnologias utilizadas.
+    - Créditos dos desenvolvedores.
 
 ---
 
-## 🗂️ Estrutura de Diretórios
+## 🆕 Últimas Atualizações
+
+**Commit:** `feat(mobile): nova tela Sobre e grid padronizado na Home`  
+**Data:** 2025-10-01
+
+- Tela **Sobre** refeita com uso de `globalStyles/themedStyles`.
+- Grid/tiles da Home movidos para `globalStyles` (`homeGrid`, `homeTile*`).
+- Ícones específicos por módulo (Motos, Filiais, Agendamentos, Eventos, Usuários, Sobre).
+- Novos utilitários adicionados em `mototrack.ts`:
+    - `fmtDateTime()`
+    - `pickAgendamentoDate()`
+    - `pickEventoDate()`
+    - `getApiBase()`
+    - `newAbort(ms)`
+
+---
+
+## 🗂️ Estrutura do Projeto
 
 ```plaintext
-mototrack/
-├── App.jsx
-├── app.json
-├── babel.config.js
-├── package.json
-└── src/
-    ├── components/
-    │   ├── FormInput.jsx
-    │   ├── MotoCard.jsx
-    ├── routes/
-    │   └── AppRoutes.jsx
-    ├── screens/
-    │   ├── HomeScreen.jsx
-    │   ├── CadastroMotoScreen.jsx
-    │   ├── ListagemMotosScreen.jsx
-    │   ├── DetalheMotoScreen.jsx
-    │   ├── PreferenciasScreen.jsx
-    │   ├── CadastroPatioScreen.jsx
-    │   └── SobreScreen.jsx
-    └── styles/
-        └── globalStyles.js
+app/
+├── home/
+│   └── index.tsx          # Dashboard (grid/tiles)
+├── sobre/
+│   └── index.tsx          # Tela Sobre
+├── motos/                 # CRUD de motos
+├── filiais/               # CRUD de filiais
+├── agendamentos/          # CRUD de agendamentos
+├── eventos/               # CRUD de eventos
+└── usuarios/              # CRUD de usuários
 
+src/
+├── components/
+│   └── ThemeToggleButton.tsx
+├── context/
+│   └── ThemeContext.tsx
+├── services/
+│   └── mototrack.ts       # Cliente Axios + utils (datas, aborts, formatadores)
+└── styles/
+    └── globalStyles.ts    # Estilos globais e temáticos
 ```
 
 ---
@@ -89,81 +93,51 @@ mototrack/
 ## 🚀 Como Executar o Projeto
 
 ### 📌 Pré-requisitos
+- Node.js (LTS)
+- npm ou yarn
+- Expo CLI
+- Aplicativo **Expo Go** (Android/iOS)
 
-- **Node.js** (versão LTS)
-- **npm** ou **yarn**
-- **Expo CLI** instalado globalmente:
-
+### 🛠️ Passos
 ```bash
-npm install -g expo-cli
-```
-
-- Aplicativo **Expo Go** no smartphone (iOS ou Android).
-
----
-
-### 🛠️ Execução Passo a Passo
-
-1. **Clone o repositório:**
-
-```bash
-git clone <URL do repositório>
+# Clonar o repositório
+git clone <URL_REPO>
 cd mototrack
-```
 
-2. **Instale as dependências:**
-
-**Usando npm:**
-
-```bash
+# Instalar dependências
 npm install
-```
 
-**Ou usando yarn:**
-
-```bash
-yarn install
-```
-
-3. **Execute o projeto:**
-
-**Usando npx:**
-
-```bash
+# Executar
 npx expo start
 ```
 
-**Ou diretamente com Expo CLI:**
-
+Se quiser apontar para outra API:
 ```bash
-expo start
+EXPO_PUBLIC_API_BASE=http://10.0.2.2:5267 npx expo start
 ```
-
-4. **Abra no dispositivo móvel:**
-
-- Abra o aplicativo **Expo Go** no smartphone.
-- Escaneie o QR Code exibido no terminal.
 
 ---
 
 ## ⚙️ Tecnologias Utilizadas
 
-| Tecnologia       | Descrição                                     |
-| ---------------- | --------------------------------------------- |
-| React Native     | Desenvolvimento de aplicativos móveis         |
-| Expo             | Plataforma para criação rápida de apps        |
-| React Navigation | Gerenciamento da navegação entre telas        |
-| AsyncStorage     | Armazenamento persistente local de dados      |
+- **React Native** — base para apps móveis.
+- **Expo Router** — navegação moderna.
+- **TypeScript** — tipagem estática.
+- **Axios** — cliente HTTP.
+- **Firebase Auth** — autenticação.
+- **AsyncStorage** — armazenamento local.
+- **ThemeContext** — tema claro/escuro.
+- **Vector Icons (Feather/MaterialCommunityIcons)** — ícones nos módulos.
 
 ---
 
-## 🔧 Decisões de Arquitetura
+## 🔧 Arquitetura & Boas Práticas
 
-- Separação clara entre lógica (**componentes e telas**) e **estilos**.
-- Utilização do **Stack Navigator** para navegação eficiente.
-- Componentização para reuso e manutenção facilitada.
-- Estilização modular com `StyleSheet`.
-- Persistência de dados com `AsyncStorage`.
+- Separação entre **telas, serviços, contextos e estilos**.
+- Estilos globais (`globalStyles.ts`) com variantes dependentes de tema (`themedStyles`).
+- Reutilização de componentes (ex.: `ThemeToggleButton`).
+- `mototrack.ts` centraliza todos os **CRUDs e utilitários** (datas, abort, formatadores).
+- Uso extensivo de **hooks** (`useState`, `useEffect`, `useCallback`, `useMemo`).
 
 ---
 
@@ -171,37 +145,32 @@ expo start
 
 ```json
 "dependencies": {
+  "@expo/vector-icons": "^13.x.x",
   "@react-navigation/native": "^6.x.x",
-  "@react-navigation/native-stack": "^6.x.x",
   "@react-native-async-storage/async-storage": "^1.x.x",
-  "react-native-screens": "~3.x.x",
-  "react-native-safe-area-context": "4.x.x",
+  "axios": "^1.x.x",
+  "expo": "^52.x.x",
+  "expo-router": "^3.x.x",
+  "firebase": "^10.x.x",
   "react": "18.x.x",
-  "react-native": "0.73.x",
-  "expo": "^50.x.x"
+  "react-native": "0.73.x"
 }
 ```
 
-*(Versões podem variar.)*
+*(Versões podem variar)*
 
 ---
 
-## ✅ Boas Práticas Adotadas
+## 🚩 Melhorias Futuras
 
-- Uso extensivo de **hooks** (`useState`, `useEffect`) para gerenciamento de estado.
-- **Validação de formulários** antes do armazenamento.
-- **Centralização de estilos** (`globalStyles.js`) para padronização.
-- Componentização para reuso e clareza.
-- Tratamento robusto e preventivo de **erros**.
-
----
-
-## 🚩 Possíveis Melhorias Futuras
-
-- Integração com serviços em nuvem (**Firebase**, **Supabase**).
-- Implementação de **geolocalização** com `expo-location`.
-- Autenticação e controle de acesso.
-- Validação avançada com **Yup** e **React Hook Form**.
-- Testes automatizados com **Jest**.
+- Geolocalização em tempo real (`expo-location`).
+- Push notifications.
+- Autenticação avançada (roles, permissões).
+- Testes automatizados (Jest).
+- Deploy contínuo com CI/CD (GitHub Actions).
 
 ---
+
+## 📜 Licença
+
+Este aplicativo foi desenvolvido exclusivamente para fins acadêmicos na disciplina **Mobile Application Development – FIAP 2025**.
