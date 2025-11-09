@@ -53,6 +53,9 @@ export default function MotoFormScreen() {
     const [salvando, setSalvando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
 
+    // ⬇️ NOVO: erros por campo
+    const [fieldErrors, setFieldErrors] = useState<{ placa?: string; ano?: string }>({});
+
     const [form, setForm] = useState<MotoForm>({
         placa: "",
         modelo: "",
@@ -69,6 +72,7 @@ export default function MotoFormScreen() {
     const carregar = async () => {
         setErro(null);
         setLoading(true);
+        setFieldErrors({});
         try {
             if (!isEdit) {
                 setForm({
@@ -79,7 +83,13 @@ export default function MotoFormScreen() {
                     status: "",
                 });
             } else {
-                const m = await MotoTrack.getMoto(Number(id));
+                const motoId = Number(id);
+                if (!Number.isFinite(motoId) || motoId <= 0) {
+                    Alert.alert("Aviso", "Moto inválida.");
+                    router.replace("/motos/list");
+                    return;
+                }
+                const m = await MotoTrack.getMoto(motoId);
                 setForm({
                     id: m.id,
                     placa: maskPlaca(m.placa ?? ""),
@@ -90,7 +100,11 @@ export default function MotoFormScreen() {
                 });
             }
         } catch (e: any) {
-            setErro(e?.message ?? "Falha ao carregar");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Falha ao carregar");
+            setErro(msg);
         } finally {
             setLoading(false);
         }
@@ -98,15 +112,29 @@ export default function MotoFormScreen() {
 
     useEffect(() => { void carregar(); }, [id]);
 
-    const salvar = async () => {
-        // Validações simples
-        if (!form.placa?.trim()) return Alert.alert("Validação", "Informe a placa.");
-        if (form.placa.length < 7) return Alert.alert("Validação", "Placa deve ter 7 caracteres.");
+    const validar = (): boolean => {
+        const fe: typeof fieldErrors = {};
+        const placa = maskPlaca(form.placa);
+        if (!placa) fe.placa = "Informe a placa.";
+        else if (placa.length !== 7) fe.placa = "Placa deve ter 7 caracteres alfanuméricos.";
+        else if (!/^[A-Z0-9]{7}$/.test(placa)) fe.placa = "Placa inválida (use letras e números).";
+
         if (form.ano != null) {
-            if (!Number.isInteger(form.ano) || form.ano < 1900 || form.ano > 2100) {
-                return Alert.alert("Validação", "Ano inválido. Use um valor entre 1900 e 2100.");
-            }
+            if (!Number.isInteger(form.ano)) fe.ano = "Ano deve ser inteiro.";
+            else if (form.ano < 1900 || form.ano > 2100) fe.ano = "Ano inválido (1900 a 2100).";
         }
+
+        setFieldErrors(fe);
+        if (Object.keys(fe).length) {
+            Alert.alert("Validação", "Corrija os campos destacados.");
+            return false;
+        }
+        return true;
+    };
+
+    const salvar = async () => {
+        setFieldErrors({});
+        if (!validar()) return;
 
         setSalvando(true);
         try {
@@ -128,7 +156,11 @@ export default function MotoFormScreen() {
                 router.replace("/motos/list");
             }
         } catch (e: any) {
-            Alert.alert("Erro", e?.message ?? "Falha ao salvar");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Falha ao salvar");
+            Alert.alert("Erro", msg);
         } finally {
             setSalvando(false);
         }
@@ -149,7 +181,11 @@ export default function MotoFormScreen() {
             Alert.alert("Excluída", "Moto removida.");
             router.replace("/motos/list");
         } catch (e: any) {
-            Alert.alert("Erro", e?.message ?? "Não foi possível excluir");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Não foi possível excluir");
+            Alert.alert("Erro", msg);
         }
     };
 
@@ -183,11 +219,22 @@ export default function MotoFormScreen() {
                                         onChangeText={(v) => setForm((s) => ({ ...s, placa: maskPlaca(v) }))}
                                         autoCapitalize="characters"
                                         maxLength={7}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface, textTransform: "uppercase" },
+                                            {
+                                                borderColor: fieldErrors.placa ? colors.dangerBorder : colors.border,
+                                                color: colors.text,
+                                                backgroundColor: colors.surface,
+                                                textTransform: "uppercase",
+                                            },
                                         ]}
                                     />
+                                    {!!fieldErrors.placa && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.placa}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Modelo */}
@@ -198,6 +245,7 @@ export default function MotoFormScreen() {
                                         placeholderTextColor={colors.mutedText}
                                         value={form.modelo ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, modelo: v }))}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
                                             { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
@@ -213,6 +261,7 @@ export default function MotoFormScreen() {
                                         placeholderTextColor={colors.mutedText}
                                         value={form.marca ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, marca: v }))}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
                                             { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
@@ -230,11 +279,17 @@ export default function MotoFormScreen() {
                                         onChangeText={(v) => setForm((s) => ({ ...s, ano: toInt(v) }))}
                                         keyboardType="numeric"
                                         maxLength={4}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
+                                            { borderColor: fieldErrors.ano ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },
                                         ]}
                                     />
+                                    {!!fieldErrors.ano && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.ano}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Status */}
@@ -245,6 +300,7 @@ export default function MotoFormScreen() {
                                         placeholderTextColor={colors.mutedText}
                                         value={form.status ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, status: v }))}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
                                             { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
@@ -257,13 +313,14 @@ export default function MotoFormScreen() {
                                     <Pressable
                                         accessibilityRole="button"
                                         accessibilityLabel={isEdit ? "Atualizar moto" : "Salvar moto"}
+                                        accessibilityHint="Valida os campos e envia os dados da moto."
                                         android_ripple={{ color: colors.ripple }}
                                         disabled={salvando}
                                         style={[globalStyles.button, { backgroundColor: colors.button }]}
                                         onPress={salvar}
                                     >
                                         <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>
-                                            {isEdit ? "Atualizar" : "Salvar"}
+                                            {salvando ? "Salvando..." : (isEdit ? "Atualizar" : "Salvar")}
                                         </Text>
                                     </Pressable>
 

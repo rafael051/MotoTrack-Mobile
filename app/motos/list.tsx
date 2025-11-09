@@ -25,6 +25,10 @@ export default function MotosList() {
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
 
+    // ⬇️ NOVO: refreshing separado de loading e controle de exclusão
+    const [refreshing, setRefreshing] = useState(false);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+
     const carregar = useCallback(async () => {
         setErro(null);
         setLoading(true);
@@ -37,8 +41,9 @@ export default function MotosList() {
             );
             setItens(sorted);
         } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : "Falha ao carregar";
-            setErro(msg);
+            const message = e instanceof Error ? e.message : String(e);
+            const offline = message.includes("Network") || (e as any)?.name === "TypeError";
+            setErro(offline ? "Sem conexão. Verifique sua internet." : "Falha ao carregar");
             setItens([]);
         } finally {
             setLoading(false);
@@ -51,6 +56,13 @@ export default function MotosList() {
             return undefined;
         }, [carregar])
     );
+
+    // ⬇️ NOVO: pull-to-refresh
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await carregar();
+        setRefreshing(false);
+    }, [carregar]);
 
     const novo = () => router.push("/motos/form");
     const editar = (id: number) =>
@@ -65,11 +77,15 @@ export default function MotosList() {
         });
         if (!ok) return;
         try {
+            setDeletingId(id); // evita duplo clique e dá feedback visual
             await MotoTrack.deleteMoto(id);
-            void carregar();
+            await carregar();
         } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : "Não foi possível excluir";
-            Alert.alert("Erro", msg);
+            const message = e instanceof Error ? e.message : String(e);
+            const offline = message.includes("Network") || (e as any)?.name === "TypeError";
+            Alert.alert("Erro", offline ? "Sem conexão. Verifique sua internet." : "Não foi possível excluir");
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -80,6 +96,7 @@ export default function MotosList() {
         const marca = showStr(item.marca);
         const ano = showInt(item.ano);
         const status = showStr(item.status);
+        const isDeleting = deletingId === id;
 
         return (
             <Pressable
@@ -110,23 +127,25 @@ export default function MotosList() {
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
                         onPress={() => editar(id)}
+                        disabled={isDeleting}
                         style={[
                             listStyles.smallBtn,
-                            { backgroundColor: colors.surface, borderColor: colors.border },
+                            { backgroundColor: colors.surface, borderColor: colors.border, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: colors.text }}>Editar</Text>
+                        <Text style={{ color: colors.text }}>{isDeleting ? "..." : "Editar"}</Text>
                     </Pressable>
 
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
                         onPress={() => excluir(id)}
+                        disabled={isDeleting}
                         style={[
                             listStyles.smallBtnDanger,
-                            { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder },
+                            { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: "#fecaca" }}>Excluir</Text>
+                        <Text style={{ color: "#fecaca" }}>{isDeleting ? "Excluindo..." : "Excluir"}</Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -150,6 +169,21 @@ export default function MotosList() {
 
                 {/* Ações topo */}
                 <View style={listStyles.row}>
+                    {/* ⬇️ NOVO: Botão Voltar */}
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Voltar"
+                        accessibilityHint="Retorna para a tela anterior"
+                        android_ripple={{ color: colors.ripple }}
+                        style={[
+                            globalStyles.button,
+                            { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+                        ]}
+                        onPress={() => router.back()}
+                    >
+                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Voltar</Text>
+                    </Pressable>
+
                     <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Cadastrar nova moto"
@@ -199,8 +233,9 @@ export default function MotosList() {
                                     </Text>
                                 }
                                 renderItem={renderItem}
-                                refreshing={loading}
-                                onRefresh={carregar}
+                                // ⬇️ pull-to-refresh real
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
                             />
                         </>
                     )}

@@ -57,6 +57,10 @@ export default function AgendamentosList() {
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
 
+    // ⬇️ NOVO: pull-to-refresh e controle de exclusão em andamento
+    const [refreshing, setRefreshing] = useState(false);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+
     const carregar = useCallback(async () => {
         setErro(null);
         setLoading(true);
@@ -74,7 +78,9 @@ export default function AgendamentosList() {
 
             setItens(withSort);
         } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : "Falha ao carregar";
+            const message = e instanceof Error ? e.message : String(e);
+            const offline = message.includes("Network") || (e as any)?.name === "TypeError";
+            const msg = offline ? "Sem conexão. Verifique sua internet." : "Falha ao carregar";
             setErro(msg);
             setItens([]);
         } finally {
@@ -89,6 +95,13 @@ export default function AgendamentosList() {
         }, [carregar])
     );
 
+    // ⬇️ NOVO: ação de pull-to-refresh
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await carregar();
+        setRefreshing(false);
+    }, [carregar]);
+
     const novo = () => router.push("/agendamentos/form");
     const editar = (id: number) =>
         router.push({ pathname: "/agendamentos/form", params: { id: String(id) } });
@@ -102,11 +115,16 @@ export default function AgendamentosList() {
         });
         if (!ok) return;
         try {
+            setDeletingId(id); // ⬅️ NOVO: evita duplo clique
             await MotoTrack.deleteAgendamento(id);
-            carregar();
+            await carregar();
         } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : "Não foi possível excluir";
+            const message = e instanceof Error ? e.message : String(e);
+            const offline = message.includes("Network") || (e as any)?.name === "TypeError";
+            const msg = offline ? "Sem conexão. Verifique sua internet." : "Não foi possível excluir";
             Alert.alert("Erro", msg);
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -121,6 +139,8 @@ export default function AgendamentosList() {
         const quando = d ? formatPt(d, true) : "—";
         const motoId = (item as any).motoId ?? "—";
         const descricao = (item as any).descricao ?? "—";
+
+        const isDeleting = deletingId === item.id;
 
         return (
             <Pressable
@@ -146,23 +166,25 @@ export default function AgendamentosList() {
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
                         onPress={() => editar(item.id)}
+                        disabled={isDeleting}
                         style={[
                             listStyles.smallBtn,
-                            { backgroundColor: colors.surface, borderColor: colors.border },
+                            { backgroundColor: colors.surface, borderColor: colors.border, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: colors.text }}>Editar</Text>
+                        <Text style={{ color: colors.text }}>{isDeleting ? "..." : "Editar"}</Text>
                     </Pressable>
 
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
                         onPress={() => excluir(item.id)}
+                        disabled={isDeleting}
                         style={[
                             listStyles.smallBtnDanger,
-                            { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder },
+                            { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: "#fecaca" }}>Excluir</Text>
+                        <Text style={{ color: "#fecaca" }}>{isDeleting ? "Excluindo..." : "Excluir"}</Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -187,6 +209,21 @@ export default function AgendamentosList() {
 
                 {/* Ações topo */}
                 <View style={listStyles.row}>
+                    {/* ⬇️ NOVO: Botão Voltar */}
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Voltar"
+                        accessibilityHint="Retorna para a tela anterior"
+                        android_ripple={{ color: colors.ripple }}
+                        style={[
+                            globalStyles.button,
+                            { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+                        ]}
+                        onPress={() => router.back()}
+                    >
+                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Voltar</Text>
+                    </Pressable>
+
                     <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Criar novo agendamento"
@@ -238,6 +275,9 @@ export default function AgendamentosList() {
                                     </Text>
                                 }
                                 renderItem={renderItem}
+                                // ⬇️ NOVO: pull-to-refresh nativo
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
                             />
                         </>
                     )}

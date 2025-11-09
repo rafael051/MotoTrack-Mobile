@@ -2,7 +2,9 @@
 import { Redirect } from "expo-router";
 
 /**
- * Quando acessar /agendamentos, redireciona para /agendamentos/list.
+ * Alias de rota:
+ * Ao acessar /agendamentos, redireciona imediatamente para /agendamentos/list
+ * usando replace (sem poluir o histórico).
  */
 export default function AgendamentosIndex() {
     return <Redirect href="/agendamentos/list" />;

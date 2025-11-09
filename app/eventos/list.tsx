@@ -62,14 +62,17 @@ export default function EventosList() {
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
 
+    // ⬇️ NOVO: pull-to-refresh e controle de exclusão em andamento
+    const [refreshing, setRefreshing] = useState(false);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+
     const carregar = useCallback(async () => {
         setErro(null);
         setLoading(true);
         try {
             const data = await MotoTrack.getEventos(); // retorna EventoListItem[]
 
-            // Ordena por data desc (campo `dataHora` no formato PT-BR "dd/MM/yyyy HH:mm:ss")
-            // e, em caso de empate/ausência, usa o id desc como critério secundário.
+            // Ordena por data desc e, em empate/ausência, usa id desc
             const withSort = [...(Array.isArray(data) ? data : [])].sort((a, b) => {
                 const aRaw = (a as any).dataHora ?? "";
                 const bRaw = (b as any).dataHora ?? "";
@@ -82,7 +85,9 @@ export default function EventosList() {
 
             setItens(withSort);
         } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : "Falha ao carregar";
+            const message = e instanceof Error ? e.message : String(e);
+            const offline = message.includes("Network") || (e as any)?.name === "TypeError";
+            const msg = offline ? "Sem conexão. Verifique sua internet." : "Falha ao carregar";
             setErro(msg);
             setItens([]);
         } finally {
@@ -90,13 +95,19 @@ export default function EventosList() {
         }
     }, []);
 
-
     useFocusEffect(
         useCallback(() => {
             void carregar();
             return undefined;
         }, [carregar])
     );
+
+    // ⬇️ NOVO: ação de pull-to-refresh
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await carregar();
+        setRefreshing(false);
+    }, [carregar]);
 
     const novo = () => router.push("/eventos/form");
     const editar = (id: number) =>
@@ -111,11 +122,16 @@ export default function EventosList() {
         });
         if (!ok) return;
         try {
+            setDeletingId(id); // ⬅️ evita duplo clique e dá feedback visual
             await MotoTrack.deleteEvento(id);
-            carregar();
+            await carregar();
         } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : "Não foi possível excluir";
+            const message = e instanceof Error ? e.message : String(e);
+            const offline = message.includes("Network") || (e as any)?.name === "TypeError";
+            const msg = offline ? "Sem conexão. Verifique sua internet." : "Não foi possível excluir";
             Alert.alert("Erro", msg);
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -128,6 +144,8 @@ export default function EventosList() {
         const motoId = (item as any).motoId ?? "—";
         const tipo = (item as any).tipo ?? "—";
         const motivo = (item as any).motivo ?? "—";
+
+        const isDeleting = deletingId === id;
 
         return (
             <Pressable
@@ -157,23 +175,25 @@ export default function EventosList() {
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
                         onPress={() => editar(id)}
+                        disabled={isDeleting}
                         style={[
                             listStyles.smallBtn,
-                            { backgroundColor: colors.surface, borderColor: colors.border },
+                            { backgroundColor: colors.surface, borderColor: colors.border, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: colors.text }}>Editar</Text>
+                        <Text style={{ color: colors.text }}>{isDeleting ? "..." : "Editar"}</Text>
                     </Pressable>
 
                     <Pressable
                         android_ripple={{ color: colors.ripple }}
                         onPress={() => excluir(id)}
+                        disabled={isDeleting}
                         style={[
                             listStyles.smallBtnDanger,
-                            { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder },
+                            { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: "#fecaca" }}>Excluir</Text>
+                        <Text style={{ color: "#fecaca" }}>{isDeleting ? "Excluindo..." : "Excluir"}</Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -197,6 +217,21 @@ export default function EventosList() {
 
                 {/* Ações topo */}
                 <View style={listStyles.row}>
+                    {/* ⬇️ NOVO: Botão Voltar */}
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Voltar"
+                        accessibilityHint="Retorna para a tela anterior"
+                        android_ripple={{ color: colors.ripple }}
+                        style={[
+                            globalStyles.button,
+                            { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+                        ]}
+                        onPress={() => router.back()}
+                    >
+                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Voltar</Text>
+                    </Pressable>
+
                     <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Criar novo evento"
@@ -250,6 +285,9 @@ export default function EventosList() {
                                     </Text>
                                 }
                                 renderItem={renderItem}
+                                // ⬇️ NOVO: pull-to-refresh nativo
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
                             />
                         </>
                     )}

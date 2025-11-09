@@ -68,6 +68,11 @@ export default function EventoForm() {
     const [salvando, setSalvando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
 
+    // ⬇️ NOVO: erros por campo
+    const [fieldErrors, setFieldErrors] = useState<{
+        data?: string; motoId?: string; tipo?: string; motivo?: string;
+    }>({});
+
     const [form, setForm] = useState<Partial<Evento & {
         motoId?: number; tipo?: string; motivo?: string; localizacao?: string | null; dataHora?: string;
     }>>({
@@ -88,12 +93,19 @@ export default function EventoForm() {
 
     const carregar = async () => {
         setErro(null); setLoading(true);
+        setFieldErrors({});
         try {
             if (!isEdit) {
                 setForm({ dataHora: "", motoId: undefined, tipo: "", motivo: "", localizacao: "" });
                 setDataHoraText("");
             } else {
-                const found = await MotoTrack.getEvento(Number(id));
+                const _id = Number(id);
+                if (!Number.isFinite(_id) || _id <= 0) {
+                    Alert.alert("Aviso", "Evento inválido.");
+                    router.replace("/eventos/list");
+                    return;
+                }
+                const found = await MotoTrack.getEvento(_id);
                 setForm({
                     id: found.id,
                     dataHora: (found as any).dataHora,    // PT-BR vindo da API
@@ -105,7 +117,11 @@ export default function EventoForm() {
                 setDataHoraText((found as any).dataHora ?? "");
             }
         } catch (e: any) {
-            setErro(e?.message ?? "Falha ao carregar");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Falha ao carregar");
+            setErro(msg);
         } finally {
             setLoading(false);
         }
@@ -120,15 +136,41 @@ export default function EventoForm() {
     }, [loading, form?.dataHora]);
 
     const salvar = async () => {
+        setFieldErrors({});
+
         // Garante normalização mesmo sem blur
         const normalized = normalizePtDateTime(dataHoraText);
-        if (!normalized) return Alert.alert("Validação", "Informe Data/Hora completa (dd/mm/aaaa hh:mm).");
+        if (!normalized) {
+            setFieldErrors((e) => ({ ...e, data: "Informe Data/Hora completa (dd/mm/aaaa hh:mm)." }));
+            Alert.alert("Validação", "Informe Data/Hora completa (dd/mm/aaaa hh:mm).");
+            return;
+        }
         const parsed = parsePtToDate(normalized);
-        if (!parsed) return Alert.alert("Validação", "Data/Hora inválida.");
+        if (!parsed) {
+            setFieldErrors((e) => ({ ...e, data: "Data/Hora inválida." }));
+            Alert.alert("Validação", "Data/Hora inválida.");
+            return;
+        }
 
-        if (!form.motoId) return Alert.alert("Validação", "Informe o ID da moto");
-        if (!form.tipo?.trim()) return Alert.alert("Validação", "Informe o tipo do evento");
-        if (!form.motivo?.trim()) return Alert.alert("Validação", "Informe o motivo");
+        if (!form.motoId) {
+            setFieldErrors((e) => ({ ...e, motoId: "Informe o ID da moto." }));
+            Alert.alert("Validação", "Informe o ID da moto");
+            return;
+        }
+
+        const tipo = sanitize(form.tipo ?? "");
+        if (!tipo) {
+            setFieldErrors((e) => ({ ...e, tipo: "Informe o tipo do evento." }));
+            Alert.alert("Validação", "Informe o tipo do evento");
+            return;
+        }
+
+        const motivo = sanitize(form.motivo ?? "");
+        if (!motivo || motivo.length < 3) {
+            setFieldErrors((e) => ({ ...e, motivo: "Motivo deve ter ao menos 3 caracteres." }));
+            Alert.alert("Validação", "Informe o motivo");
+            return;
+        }
 
         setSalvando(true);
         try {
@@ -136,8 +178,8 @@ export default function EventoForm() {
             const payload = {
                 dataHora: normalized,
                 motoId: Number(form.motoId),
-                tipo: sanitize(form.tipo ?? ""),
-                motivo: sanitize(form.motivo ?? ""),
+                tipo,
+                motivo,
                 localizacao: sanitize(form.localizacao ?? ""),
             } as any;
 
@@ -151,7 +193,11 @@ export default function EventoForm() {
                 router.replace("/eventos/list");
             }
         } catch (e: any) {
-            Alert.alert("Erro", e?.message ?? "Falha ao salvar");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Falha ao salvar");
+            Alert.alert("Erro", msg);
         } finally {
             setSalvando(false);
         }
@@ -171,7 +217,11 @@ export default function EventoForm() {
             Alert.alert("Excluído", "Evento removido.");
             router.replace("/eventos/list");
         } catch (e: any) {
-            Alert.alert("Erro", e?.message ?? "Não foi possível excluir");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Não foi possível excluir");
+            Alert.alert("Erro", msg);
         }
     };
 
@@ -216,11 +266,17 @@ export default function EventoForm() {
                                         inputMode="numeric"
                                         maxLength={19}
                                         autoCorrect={false}
+                                        editable={!salvando && !loading} // ⬅️ bloqueio durante salvar/loading
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
+                                            { borderColor: fieldErrors.data ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },
                                         ]}
                                     />
+                                    {!!fieldErrors.data && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.data}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Moto ID */}
@@ -235,11 +291,17 @@ export default function EventoForm() {
                                             const n = Number(v.replace(/\D/g, ""));
                                             setForm((s) => ({ ...s, motoId: Number.isFinite(n) && n > 0 ? n : undefined }));
                                         }}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
+                                            { borderColor: fieldErrors.motoId ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },
                                         ]}
                                     />
+                                    {!!fieldErrors.motoId && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.motoId}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Tipo */}
@@ -250,11 +312,17 @@ export default function EventoForm() {
                                         placeholderTextColor={colors.mutedText}
                                         value={form.tipo ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, tipo: v }))}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
+                                            { borderColor: fieldErrors.tipo ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },
                                         ]}
                                     />
+                                    {!!fieldErrors.tipo && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.tipo}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Motivo */}
@@ -265,12 +333,18 @@ export default function EventoForm() {
                                         placeholderTextColor={colors.mutedText}
                                         value={form.motivo ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, motivo: v }))}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
+                                            { borderColor: fieldErrors.motivo ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },
                                         ]}
                                         multiline
                                     />
+                                    {!!fieldErrors.motivo && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.motivo}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Localização */}
@@ -281,6 +355,7 @@ export default function EventoForm() {
                                         placeholderTextColor={colors.mutedText}
                                         value={form.localizacao ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, localizacao: v }))}
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
                                             { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
@@ -291,17 +366,22 @@ export default function EventoForm() {
                                 {/* Ações */}
                                 <View style={listStyles.row}>
                                     <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={isEdit ? "Atualizar evento" : "Salvar evento"}
+                                        accessibilityHint="Valida os campos e envia os dados do evento."
                                         android_ripple={{ color: colors.ripple }}
                                         disabled={salvando}
                                         style={[globalStyles.button, { backgroundColor: colors.button }]}
                                         onPress={salvar}
                                     >
                                         <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>
-                                            {isEdit ? "Atualizar" : "Salvar"}
+                                            {salvando ? "Salvando..." : (isEdit ? "Atualizar" : "Salvar")}
                                         </Text>
                                     </Pressable>
 
                                     <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Voltar"
                                         android_ripple={{ color: colors.ripple }}
                                         style={[
                                             globalStyles.button,
@@ -320,6 +400,9 @@ export default function EventoForm() {
                         <View style={[formStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <Text style={[globalStyles.text, { color: colors.text }]}>Ações</Text>
                             <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Excluir evento"
+                                accessibilityHint="Ação irreversível"
                                 android_ripple={{ color: colors.ripple }}
                                 onPress={excluir}
                                 style={[formStyles.dangerBtn, { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder }]}

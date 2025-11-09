@@ -68,6 +68,9 @@ export default function AgendamentoForm() {
     const [salvando, setSalvando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
 
+    // ⬇️ NOVO: erros por campo para feedback inline
+    const [fieldErrors, setFieldErrors] = useState<{ data?: string; motoId?: string; descricao?: string }>({});
+
     // Mantemos o shape sem "status" no payload (não existe no schema)
     const [form, setForm] = useState<Partial<Agendamento & {
         motoId?: number; descricao?: string; dataAgendada?: string;
@@ -85,14 +88,25 @@ export default function AgendamentoForm() {
         [isEdit]
     );
 
+    // ⬇️ helper: valida data futura
+    const isFutureDate = (d: Date) => d.getTime() > Date.now();
+
     const carregar = async () => {
         setErro(null); setLoading(true);
+        setFieldErrors({}); // limpa mensagens inline
         try {
             if (!isEdit) {
                 setForm({ dataAgendada: "", motoId: undefined, descricao: "" });
                 setDataHoraText("");
             } else {
-                const found = await MotoTrack.getAgendamento(Number(id));
+                // guarda: id inválido (NaN) → volta para lista
+                const _id = Number(id);
+                if (!Number.isFinite(_id) || _id <= 0) {
+                    Alert.alert("Aviso", "Agendamento inválido.");
+                    router.replace("/agendamentos/list");
+                    return;
+                }
+                const found = await MotoTrack.getAgendamento(_id);
                 // A API retorna dataAgendada (PT-BR). Mantemos como veio.
                 setForm({
                     id: (found as any).id,
@@ -103,7 +117,11 @@ export default function AgendamentoForm() {
                 setDataHoraText((found as any).dataAgendada ?? "");
             }
         } catch (e: any) {
-            setErro(e?.message ?? "Falha ao carregar");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Falha ao carregar");
+            setErro(msg);
         } finally {
             setLoading(false);
         }
@@ -118,16 +136,40 @@ export default function AgendamentoForm() {
     }, [loading, form?.dataAgendada]);
 
     const salvar = async () => {
+        // limpa erros inline a cada tentativa
+        setFieldErrors({});
+
         // Garante normalização mesmo sem blur
         const normalized = normalizePtDateTime(dataHoraText);
         if (!normalized) {
-            return Alert.alert("Validação", "Informe Data/Hora completa (dd/mm/aaaa hh:mm).");
+            setFieldErrors((e) => ({ ...e, data: "Informe Data/Hora completa (dd/mm/aaaa hh:mm)." }));
+            Alert.alert("Validação", "Informe Data/Hora completa (dd/mm/aaaa hh:mm).");
+            return;
         }
         const parsed = parsePtToDate(normalized);
-        if (!parsed) return Alert.alert("Validação", "Data/Hora inválida.");
+        if (!parsed) {
+            setFieldErrors((e) => ({ ...e, data: "Data/Hora inválida." }));
+            Alert.alert("Validação", "Data/Hora inválida.");
+            return;
+        }
+        if (!isFutureDate(parsed)) {
+            setFieldErrors((e) => ({ ...e, data: "Data/Hora deve ser futura." }));
+            Alert.alert("Validação", "Data/Hora deve ser futura.");
+            return;
+        }
 
-        if (!form.motoId) return Alert.alert("Validação", "Informe o ID da moto");
-        if (!form.descricao?.trim()) return Alert.alert("Validação", "Informe a descrição");
+        if (!form.motoId) {
+            setFieldErrors((e) => ({ ...e, motoId: "Informe o ID da moto." }));
+            Alert.alert("Validação", "Informe o ID da moto");
+            return;
+        }
+
+        const desc = sanitize(form.descricao ?? "");
+        if (!desc || desc.length < 5) {
+            setFieldErrors((e) => ({ ...e, descricao: "Descrição deve ter ao menos 5 caracteres." }));
+            Alert.alert("Validação", "Informe a descrição");
+            return;
+        }
 
         setSalvando(true);
         try {
@@ -135,7 +177,7 @@ export default function AgendamentoForm() {
             const payload = {
                 dataAgendada: normalized,
                 motoId: Number(form.motoId),
-                descricao: sanitize(form.descricao ?? ""),
+                descricao: desc,
             } as any;
 
             if (!isEdit) {
@@ -148,7 +190,11 @@ export default function AgendamentoForm() {
                 router.replace("/agendamentos/list");
             }
         } catch (e: any) {
-            Alert.alert("Erro", e?.message ?? "Falha ao salvar");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Falha ao salvar");
+            Alert.alert("Erro", msg);
         } finally {
             setSalvando(false);
         }
@@ -168,7 +214,11 @@ export default function AgendamentoForm() {
             Alert.alert("Excluído", "Agendamento removido.");
             router.replace("/agendamentos/list");
         } catch (e: any) {
-            Alert.alert("Erro", e?.message ?? "Não foi possível excluir");
+            const msg =
+                e?.message?.includes("Network") || e?.name === "TypeError"
+                    ? "Sem conexão. Verifique sua internet."
+                    : (e?.message ?? "Não foi possível excluir");
+            Alert.alert("Erro", msg);
         }
     };
 
@@ -219,11 +269,18 @@ export default function AgendamentoForm() {
                                         inputMode="numeric"
                                         maxLength={19}
                                         autoCorrect={false}
+                                        // ⬇️ bloqueia input durante salvando/loading
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
+                                            { borderColor: fieldErrors.data ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },
                                         ]}
                                     />
+                                    {!!fieldErrors.data && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.data}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Moto ID */}
@@ -238,11 +295,18 @@ export default function AgendamentoForm() {
                                             const n = Number(v.replace(/\D/g, ""));
                                             setForm((s) => ({ ...s, motoId: Number.isFinite(n) && n > 0 ? n : undefined }));
                                         }}
+                                        // ⬇️ bloqueia input durante salvando/loading
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
+                                            { borderColor: fieldErrors.motoId ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },
                                         ]}
                                     />
+                                    {!!fieldErrors.motoId && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.motoId}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Descrição */}
@@ -253,13 +317,20 @@ export default function AgendamentoForm() {
                                         placeholderTextColor={colors.mutedText}
                                         value={form.descricao ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, descricao: v }))}
+                                        // ⬇️ bloqueia input durante salvando/loading
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
-                                            { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
+                                            { borderColor: fieldErrors.descricao ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },
                                         ]}
                                         multiline
                                         numberOfLines={4}
                                     />
+                                    {!!fieldErrors.descricao && (
+                                        <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
+                                            {fieldErrors.descricao}
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Ações */}
@@ -267,13 +338,14 @@ export default function AgendamentoForm() {
                                     <Pressable
                                         accessibilityRole="button"
                                         accessibilityLabel={isEdit ? "Atualizar agendamento" : "Salvar agendamento"}
+                                        accessibilityHint="Valida os campos e envia os dados do agendamento."
                                         android_ripple={{ color: colors.ripple }}
                                         disabled={salvando}
                                         style={[globalStyles.button, { backgroundColor: colors.button }]}
                                         onPress={salvar}
                                     >
                                         <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>
-                                            {isEdit ? "Atualizar" : "Salvar"}
+                                            {salvando ? "Salvando..." : (isEdit ? "Atualizar" : "Salvar")}
                                         </Text>
                                     </Pressable>
 
