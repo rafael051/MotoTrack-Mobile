@@ -1,3 +1,4 @@
+// File: app/agendamentos/form.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -9,21 +10,14 @@ import { useTheme } from "../../src/context/ThemeContext";
 import globalStyles, { formStyles, listStyles } from "../../src/styles/globalStyles";
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
 import { MotoTrack, type Agendamento } from "../../src/services/mototrack";
-
-
 import { notifyCRUD, scheduleReminder } from "../../src/notifications/notificationsService";
+import { useTranslation } from "react-i18next";
 
 /* ============================================================================
-    🕒 Data/Hora (PT-BR)
-    - Digitação suave: máscara só insere separadores (sem zeros automáticos).
-    - No onBlur/salvar: normaliza p/ dd/MM/yyyy HH:mm:ss (com :00 se faltar).
-    - API: envia/recebe `dataAgendada` como string PT-BR (NÃO ISO).
+   🕒 Data/Hora (PT-BR) — máscara suave + normalização no blur
    ============================================================================ */
-
-/** Remove aspas e trims */
 const sanitize = (t: string) => (t ?? "").replace(/[“”"']/g, "").trim();
 
-/** Máscara SUAVE: insere separadores sem completar zeros */
 const maskDateTime = (t: string) => {
     const d = sanitize(t).replace(/\D/g, "").slice(0, 14); // dd mm aaaa hh mm ss
     let out = d.slice(0, 2);
@@ -35,10 +29,8 @@ const maskDateTime = (t: string) => {
     return out;
 };
 
-/** Normaliza ao sair do campo: dd/MM/yyyy HH:mm:ss (ss=00 se faltar) */
 const normalizePtDateTime = (t: string) => {
     const d = sanitize(t).replace(/\D/g, "");
-    // precisa ter no mínimo dd mm aaaa hh mm => 12 dígitos
     if (d.length < 12) return "";
     const pad2 = (v: string) => v.padStart(2, "0");
     const pad4 = (v: string) => v.padStart(4, "0");
@@ -51,7 +43,6 @@ const normalizePtDateTime = (t: string) => {
     return `${dd}/${mm}/${yyyy} ${HH}:${MI}:${SS}`;
 };
 
-/** Parse "dd/MM/yyyy HH:mm[:ss]" -> Date (local) */
 const parsePtToDate = (input?: string): Date | null => {
     const s = sanitize(input ?? "");
     const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
@@ -67,50 +58,47 @@ export default function AgendamentoForm() {
     const router = useRouter();
     const { colors } = useTheme();
 
+    // 🌍 i18n
+    const { t, i18n } = useTranslation();
+    const mudarIdioma = (lang: string) => i18n.changeLanguage(lang);
+
     const [loading, setLoading] = useState(true);
     const [salvando, setSalvando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
-
-    // ⬇️ NOVO: erros por campo para feedback inline
     const [fieldErrors, setFieldErrors] = useState<{ data?: string; motoId?: string; descricao?: string }>({});
 
-    // Mantemos o shape sem "status" no payload (não existe no schema)
     const [form, setForm] = useState<Partial<Agendamento & {
         motoId?: number; descricao?: string; dataAgendada?: string;
     }>>({
-        dataAgendada: "", // PT-BR no salvar
+        dataAgendada: "",
         motoId: undefined,
         descricao: "",
     });
 
-    // Campo visual para digitação
     const [dataHoraText, setDataHoraText] = useState<string>("");
 
     const titulo = useMemo(
-        () => (isEdit ? "✏️ Editar Agendamento" : "📅 Novo Agendamento"),
-        [isEdit]
+        () => (isEdit ? t("sched.form.editTitle", "✏️ Editar Agendamento") : t("sched.form.newTitle", "📅 Novo Agendamento")),
+        [isEdit, t]
     );
 
-    // ⬇️ helper: valida data futura
     const isFutureDate = (d: Date) => d.getTime() > Date.now();
 
     const carregar = async () => {
         setErro(null); setLoading(true);
-        setFieldErrors({}); // limpa mensagens inline
+        setFieldErrors({});
         try {
             if (!isEdit) {
                 setForm({ dataAgendada: "", motoId: undefined, descricao: "" });
                 setDataHoraText("");
             } else {
-                // guarda: id inválido (NaN) → volta para lista
                 const _id = Number(id);
                 if (!Number.isFinite(_id) || _id <= 0) {
-                    Alert.alert("Aviso", "Agendamento inválido.");
+                    Alert.alert(t("common.attention", "Atenção"), t("sched.form.invalidId", "Agendamento inválido."));
                     router.replace("/agendamentos/list");
                     return;
                 }
                 const found = await MotoTrack.getAgendamento(_id);
-                // A API retorna dataAgendada (PT-BR). Mantemos como veio.
                 setForm({
                     id: (found as any).id,
                     dataAgendada: (found as any).dataAgendada,
@@ -122,8 +110,8 @@ export default function AgendamentoForm() {
         } catch (e: any) {
             const msg =
                 e?.message?.includes("Network") || e?.name === "TypeError"
-                    ? "Sem conexão. Verifique sua internet."
-                    : (e?.message ?? "Falha ao carregar");
+                    ? t("common.networkDown", "Sem conexão. Verifique sua internet.")
+                    : (e?.message ?? t("common.loadFail", "Falha ao carregar"));
             setErro(msg);
         } finally {
             setLoading(false);
@@ -132,51 +120,47 @@ export default function AgendamentoForm() {
 
     useEffect(() => { carregar(); }, [id]);
 
-    // Se dataAgendada mudar (depois de load/put), sincroniza o campo visual
     useEffect(() => {
         if (loading) return;
         setDataHoraText(form?.dataAgendada ?? "");
     }, [loading, form?.dataAgendada]);
 
     const salvar = async () => {
-        // limpa erros inline a cada tentativa
         setFieldErrors({});
 
-        // Garante normalização mesmo sem blur
         const normalized = normalizePtDateTime(dataHoraText);
         if (!normalized) {
-            setFieldErrors((e) => ({ ...e, data: "Informe Data/Hora completa (dd/mm/aaaa hh:mm)." }));
-            Alert.alert("Validação", "Informe Data/Hora completa (dd/mm/aaaa hh:mm).");
+            setFieldErrors((e) => ({ ...e, data: t("sched.validation.fullDate", "Informe Data/Hora completa (dd/mm/aaaa hh:mm).") }));
+            Alert.alert(t("common.validation", "Validação"), t("sched.validation.fullDate", "Informe Data/Hora completa (dd/mm/aaaa hh:mm)."));
             return;
         }
         const parsed = parsePtToDate(normalized);
         if (!parsed) {
-            setFieldErrors((e) => ({ ...e, data: "Data/Hora inválida." }));
-            Alert.alert("Validação", "Data/Hora inválida.");
+            setFieldErrors((e) => ({ ...e, data: t("sched.validation.invalidDate", "Data/Hora inválida.") }));
+            Alert.alert(t("common.validation", "Validação"), t("sched.validation.invalidDate", "Data/Hora inválida."));
             return;
         }
         if (!isFutureDate(parsed)) {
-            setFieldErrors((e) => ({ ...e, data: "Data/Hora deve ser futura." }));
-            Alert.alert("Validação", "Data/Hora deve ser futura.");
+            setFieldErrors((e) => ({ ...e, data: t("sched.validation.futureDate", "Data/Hora deve ser futura.") }));
+            Alert.alert(t("common.validation", "Validação"), t("sched.validation.futureDate", "Data/Hora deve ser futura."));
             return;
         }
 
         if (!form.motoId) {
-            setFieldErrors((e) => ({ ...e, motoId: "Informe o ID da moto." }));
-            Alert.alert("Validação", "Informe o ID da moto");
+            setFieldErrors((e) => ({ ...e, motoId: t("sched.validation.motoRequired", "Informe o ID da moto.") }));
+            Alert.alert(t("common.validation", "Validação"), t("sched.validation.motoRequired", "Informe o ID da moto."));
             return;
         }
 
         const desc = sanitize(form.descricao ?? "");
         if (!desc || desc.length < 5) {
-            setFieldErrors((e) => ({ ...e, descricao: "Descrição deve ter ao menos 5 caracteres." }));
-            Alert.alert("Validação", "Informe a descrição");
+            setFieldErrors((e) => ({ ...e, descricao: t("sched.validation.descMin", "Descrição deve ter ao menos 5 caracteres.") }));
+            Alert.alert(t("common.validation", "Validação"), t("sched.validation.descMin", "Informe a descrição"));
             return;
         }
 
         setSalvando(true);
         try {
-            // ⚠️ API espera dataAgendada em PT-BR (não ISO)
             const payload = {
                 dataAgendada: normalized,
                 motoId: Number(form.motoId),
@@ -186,10 +170,8 @@ export default function AgendamentoForm() {
             if (!isEdit) {
                 const novo = await MotoTrack.createAgendamento(payload);
 
-                // ✅ NOVO: Notificação de CRUD (não removemos as existentes)
-                await notifyCRUD("AGENDAMENTO", "CREATE", `Agendamento #${(novo as any).id} criado.`);
+                await notifyCRUD("AGENDAMENTO", "CREATE", t("sched.notify.created", "Agendamento #{id} criado.").replace("{id}", String((novo as any).id)));
 
-                // ✅ NOVO: Lembrete local 10 minutos antes
                 const d = parsePtToDate(normalized);
                 if (d) {
                     await scheduleReminder(
@@ -197,20 +179,20 @@ export default function AgendamentoForm() {
                         (novo as any).id,
                         d,
                         10,
-                        "Lembrete de Agendamento",
-                        `Agendamento #${(novo as any).id} às ${d.toLocaleString()}.`
+                        t("home.reminderTitle", "Lembrete de Agendamento"),
+                        t("sched.reminderAt", "Agendamento #{id} às {time}.")
+                            .replace("{id}", String((novo as any).id))
+                            .replace("{time}", d.toLocaleString())
                     );
                 }
 
-                Alert.alert("Sucesso", "Agendamento criado.");
+                Alert.alert(t("common.success", "Sucesso"), t("sched.form.created", "Agendamento criado."));
                 router.replace(`/agendamentos/form?id=${(novo as any).id}`);
             } else {
                 await MotoTrack.updateAgendamento(Number(id), payload);
 
-                // ✅ NOVO: Notificação de CRUD
-                await notifyCRUD("AGENDAMENTO", "UPDATE", `Agendamento #${id} atualizado.`);
+                await notifyCRUD("AGENDAMENTO", "UPDATE", t("sched.notify.updated", "Agendamento #{id} atualizado.").replace("{id}", String(id)));
 
-                // ✅ NOVO: (Opcional) reagendar lembrete 10 minutos antes
                 const d = parsePtToDate(normalized);
                 if (d) {
                     await scheduleReminder(
@@ -218,20 +200,22 @@ export default function AgendamentoForm() {
                         Number(id),
                         d,
                         10,
-                        "Lembrete de Agendamento",
-                        `Agendamento #${id} às ${d.toLocaleString()}.`
+                        t("home.reminderTitle", "Lembrete de Agendamento"),
+                        t("sched.reminderAt", "Agendamento #{id} às {time}.")
+                            .replace("{id}", String(id))
+                            .replace("{time}", d.toLocaleString())
                     );
                 }
 
-                Alert.alert("Sucesso", "Agendamento atualizado.");
+                Alert.alert(t("common.success", "Sucesso"), t("sched.form.updated", "Agendamento atualizado."));
                 router.replace("/agendamentos/list");
             }
         } catch (e: any) {
             const msg =
                 e?.message?.includes("Network") || e?.name === "TypeError"
-                    ? "Sem conexão. Verifique sua internet."
-                    : (e?.message ?? "Falha ao salvar");
-            Alert.alert("Erro", msg);
+                    ? t("common.networkDown", "Sem conexão. Verifique sua internet.")
+                    : (e?.message ?? t("common.saveFail", "Falha ao salvar"));
+            Alert.alert(t("common.error", "Erro"), msg);
         } finally {
             setSalvando(false);
         }
@@ -240,26 +224,27 @@ export default function AgendamentoForm() {
     const excluir = async () => {
         if (!isEdit) return;
         const ok = await new Promise<boolean>((resolve) => {
-            Alert.alert("Confirmar exclusão?", "Essa ação não poderá ser desfeita.", [
-                { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-                { text: "Excluir", style: "destructive", onPress: () => resolve(true) },
-            ]);
+            Alert.alert(
+                t("common.deleteConfirm", "Confirmar exclusão?"),
+                t("common.deleteIrreversible", "Essa ação não poderá ser desfeita."),
+                [
+                    { text: t("common.cancel", "Cancelar"), style: "cancel", onPress: () => resolve(false) },
+                    { text: t("common.delete", "Excluir"), style: "destructive", onPress: () => resolve(true) },
+                ]
+            );
         });
         if (!ok) return;
         try {
             await MotoTrack.deleteAgendamento(Number(id));
-
-            // ✅ NOVO: Notificação de CRUD
-            await notifyCRUD("AGENDAMENTO", "DELETE", `Agendamento #${id} excluído.`);
-
-            Alert.alert("Excluído", "Agendamento removido.");
+            await notifyCRUD("AGENDAMENTO", "DELETE", t("sched.notify.deleted", "Agendamento #{id} excluído.").replace("{id}", String(id)));
+            Alert.alert(t("common.deleted", "Excluído"), t("sched.form.removed", "Agendamento removido."));
             router.replace("/agendamentos/list");
         } catch (e: any) {
             const msg =
                 e?.message?.includes("Network") || e?.name === "TypeError"
-                    ? "Sem conexão. Verifique sua internet."
-                    : (e?.message ?? "Não foi possível excluir");
-            Alert.alert("Erro", msg);
+                    ? t("common.networkDown", "Sem conexão. Verifique sua internet.")
+                    : (e?.message ?? t("common.deleteFail", "Não foi possível excluir"));
+            Alert.alert(t("common.error", "Erro"), msg);
         }
     };
 
@@ -267,12 +252,13 @@ export default function AgendamentoForm() {
         <SafeAreaView style={[globalStyles.container, { backgroundColor: colors.background }]}>
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
                 <ScrollView>
+
                     {/* Título */}
-                    <Text style={[globalStyles.title, { color: colors.text }]}>
-                        {titulo}
-                    </Text>
+                    <Text style={[globalStyles.title, { color: colors.text }]}>{titulo}</Text>
                     <Text style={[globalStyles.text, { color: colors.mutedText, textAlign: "center" }]}>
-                        {isEdit ? "Atualize os campos necessários." : "Preencha os dados para criar um agendamento."}
+                        {isEdit
+                            ? t("sched.form.subtitleEdit", "Atualize os campos necessários.")
+                            : t("sched.form.subtitleNew", "Preencha os dados para criar um agendamento.")}
                     </Text>
 
                     {/* Card do formulário */}
@@ -289,12 +275,14 @@ export default function AgendamentoForm() {
 
                                 {/* Data/Hora */}
                                 <View style={globalStyles.inputContainer}>
-                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>Data/Hora</Text>
+                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>
+                                        {t("sched.form.dateTimeLabel", "Data/Hora")}
+                                    </Text>
                                     <TextInput
-                                        placeholder="dd/mm/aaaa hh:mm:ss"
+                                        placeholder={t("sched.form.dateTimePlaceholder", "dd/mm/aaaa hh:mm:ss")}
                                         placeholderTextColor={colors.mutedText}
                                         value={dataHoraText}
-                                        onChangeText={(v) => setDataHoraText(maskDateTime(v))} // sem zeros automáticos
+                                        onChangeText={(v) => setDataHoraText(maskDateTime(v))}
                                         onBlur={() => {
                                             const normalized = normalizePtDateTime(dataHoraText);
                                             if (!normalized) {
@@ -305,12 +293,11 @@ export default function AgendamentoForm() {
                                             const d = parsePtToDate(normalized);
                                             if (!d) return;
                                             setForm((s) => ({ ...s, dataAgendada: normalized }));
-                                            setDataHoraText(normalized); // exibe já normalizado
+                                            setDataHoraText(normalized);
                                         }}
                                         inputMode="numeric"
                                         maxLength={19}
                                         autoCorrect={false}
-                                        // ⬇️ bloqueia input durante salvando/loading
                                         editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
@@ -326,17 +313,18 @@ export default function AgendamentoForm() {
 
                                 {/* Moto ID */}
                                 <View style={globalStyles.inputContainer}>
-                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>Moto (ID)</Text>
+                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>
+                                        {t("sched.form.motoIdLabel", "Moto (ID)")}
+                                    </Text>
                                     <TextInput
                                         keyboardType="numeric"
-                                        placeholder="ID da moto"
+                                        placeholder={t("sched.form.motoIdPlaceholder", "ID da moto")}
                                         placeholderTextColor={colors.mutedText}
                                         value={form.motoId ? String(form.motoId) : ""}
                                         onChangeText={(v) => {
                                             const n = Number(v.replace(/\D/g, ""));
                                             setForm((s) => ({ ...s, motoId: Number.isFinite(n) && n > 0 ? n : undefined }));
                                         }}
-                                        // ⬇️ bloqueia input durante salvando/loading
                                         editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
@@ -352,13 +340,14 @@ export default function AgendamentoForm() {
 
                                 {/* Descrição */}
                                 <View style={globalStyles.inputContainer}>
-                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>Descrição</Text>
+                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>
+                                        {t("sched.form.descLabel", "Descrição")}
+                                    </Text>
                                     <TextInput
-                                        placeholder="Ex.: Troca de óleo e revisão geral"
+                                        placeholder={t("sched.form.descPlaceholder", "Ex.: Troca de óleo e revisão geral")}
                                         placeholderTextColor={colors.mutedText}
                                         value={form.descricao ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, descricao: v }))}
-                                        // ⬇️ bloqueia input durante salvando/loading
                                         editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
@@ -378,26 +367,26 @@ export default function AgendamentoForm() {
                                 <View style={listStyles.row}>
                                     <Pressable
                                         accessibilityRole="button"
-                                        accessibilityLabel={isEdit ? "Atualizar agendamento" : "Salvar agendamento"}
-                                        accessibilityHint="Valida os campos e envia os dados do agendamento."
+                                        accessibilityLabel={isEdit ? t("sched.form.btnUpdate", "Atualizar agendamento") : t("sched.form.btnSave", "Salvar agendamento")}
+                                        accessibilityHint={t("sched.form.btnHint", "Valida os campos e envia os dados do agendamento.")}
                                         android_ripple={{ color: colors.ripple }}
                                         disabled={salvando}
                                         style={[globalStyles.button, { backgroundColor: colors.button }]}
                                         onPress={salvar}
                                     >
                                         <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>
-                                            {salvando ? "Salvando..." : (isEdit ? "Atualizar" : "Salvar")}
+                                            {salvando ? t("common.saving", "Salvando...") : (isEdit ? t("common.update", "Atualizar") : t("common.save", "Salvar"))}
                                         </Text>
                                     </Pressable>
 
                                     <Pressable
                                         accessibilityRole="button"
-                                        accessibilityLabel="Voltar"
+                                        accessibilityLabel={t("common.back", "Voltar")}
                                         android_ripple={{ color: colors.ripple }}
                                         style={[globalStyles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
                                         onPress={() => router.back()}
                                     >
-                                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Voltar</Text>
+                                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>{t("common.back", "Voltar")}</Text>
                                     </Pressable>
                                 </View>
                             </>
@@ -407,19 +396,43 @@ export default function AgendamentoForm() {
                     {/* Excluir (somente no modo edição) */}
                     {isEdit && (
                         <View style={[formStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <Text style={[globalStyles.text, { color: colors.text }]}>Ações</Text>
+                            <Text style={[globalStyles.text, { color: colors.text }]}>{t("common.actions", "Ações")}</Text>
                             <Pressable
                                 accessibilityRole="button"
-                                accessibilityLabel="Excluir agendamento"
-                                accessibilityHint="Ação irreversível"
+                                accessibilityLabel={t("sched.form.btnDelete", "Excluir agendamento")}
+                                accessibilityHint={t("common.irreversible", "Ação irreversível")}
                                 android_ripple={{ color: colors.ripple }}
                                 onPress={excluir}
                                 style={[formStyles.dangerBtn, { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder }]}
                             >
-                                <Text style={[globalStyles.buttonText, { color: "#fecaca" }]}>Excluir</Text>
+                                <Text style={[globalStyles.buttonText, { color: "#fecaca" }]}>{t("common.delete", "Excluir")}</Text>
                             </Pressable>
                         </View>
                     )}
+
+                    {/* Botões de idioma (padrão do projeto) */}
+                    <View style={globalStyles.rowCenter}>
+                        <Pressable
+                            style={[globalStyles.langButton, { backgroundColor: colors.langPtBg }]}
+                            onPress={() => mudarIdioma("pt")}
+                        >
+                            <Text style={{ color: colors.langPtText }}>PT</Text>
+                        </Pressable>
+
+                        <Pressable
+                            style={[
+                                globalStyles.langButton,
+                                {
+                                    backgroundColor: colors.langEsBg,
+                                    borderWidth: colors.langEsBorder ? 1 : 0,
+                                    borderColor: colors.langEsBorder ?? "transparent",
+                                },
+                            ]}
+                            onPress={() => mudarIdioma("es")}
+                        >
+                            <Text style={{ color: colors.langEsText }}>ES</Text>
+                        </Pressable>
+                    </View>
 
                     {/* Rodapé - Alternar tema */}
                     <View style={globalStyles.homeFooter}>

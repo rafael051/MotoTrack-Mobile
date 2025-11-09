@@ -1,11 +1,416 @@
 {
-    "welcome":"BienVenido a Aplication",
-    "logout":"Log out",
-    "deleteAccount":"Delete account",
-    "confirmDelete":"Are you sure you want to delete your account?",
-    "cancel":"Cancel",
-    "delete":"Delete",
-    "login":"Log-in",
-    "password":"Password",
-    "register":"Registro"
+  "welcome": "Bienvenido",
+  "login": "Iniciar sesión",
+  "password": "Contraseña",
+  "register": "Registrarse",
+
+  "common": {
+    "attention": "Atención",
+    "success": "Éxito",
+    "error": "Error",
+    "back": "Volver"
+  },
+
+  "auth": {
+    "emailPlaceholder": "Correo electrónico",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "fillAllFields": "¡Rellena todos los campos!",
+    "invalidEmailOrPassword": "Correo o contraseña incorrectos. Verifica.",
+    "typeEmailToRecover": "Escribe el correo para recuperar la contraseña",
+    "resetEmailSent": "Correo de recuperación enviado",
+    "resetEmailError": "No fue posible enviar el correo de restablecimiento",
+
+    "fullName": "Nombre completo",
+    "createAccount": "Crear cuenta",
+    "signUp": "Registrarse",
+    "userNotCreated": "No se pudo crear el usuario.",
+
+    "changePassword": "Cambiar contraseña",
+    "currentPasswordLabel": "Contraseña actual",
+    "currentPasswordPlaceholder": "Escribe la contraseña actual",
+    "newPasswordLabel": "Nueva contraseña",
+    "newPasswordPlaceholder": "Escribe la nueva contraseña",
+    "confirmNewPasswordLabel": "Confirmar nueva contraseña",
+    "confirmNewPasswordPlaceholder": "Repite la nueva contraseña",
+
+    "passwordChangedSuccess": "Contraseña cambiada con éxito.",
+    "errWeakPassword": "La nueva contraseña es muy débil (mín. 6 caracteres).",
+    "errPasswordsDontMatch": "Las contraseñas no coinciden.",
+    "errRequiresRecentLogin": "Es necesario iniciar sesión nuevamente para cambiar la contraseña.",
+    "errTooManyRequests": "Demasiados intentos. Inténtalo de nuevo en instantes.",
+    "errWrongPassword": "Contraseña actual incorrecta.",
+    "errNoUserLogged": "Ningún usuario conectado.",
+    "errChangePasswordGeneric": "No fue posible cambiar la contraseña."
+  },
+
+  "lang": {
+    "pt": "Portugués",
+    "es": "Español"
+  },
+
+  "app": {
+    "name": "MotoTrack"
+  },
+  "common": {
+    "genericLoadError": "Error al cargar los datos",
+    "cancel": "Cancelar"
+  },
+  "home": {
+    "modules": {
+      "motos": "Motos",
+      "filiais": "Sucursales",
+      "agendamentos": "Agendamientos",
+      "eventos": "Eventos",
+      "usuarios": "Usuarios",
+      "sobre": "Acerca de"
+    },
+    "loggedIn": "Estás conectado.",
+    "logout": "Cerrar sesión",
+    "deleteAccount": "Eliminar cuenta",
+    "deleteConfirmTitle": "Confirmar eliminación",
+    "deleteConfirmMessage": "¿Seguro que deseas eliminar tu cuenta? Esta acción no se puede deshacer.",
+    "deleteConfirmYes": "Eliminar",
+    "noUserLogged": "Ningún usuario conectado.",
+    "accountDeleted": "Cuenta eliminada",
+    "accountDeletedMsg": "Tu cuenta se eliminó con éxito.",
+    "couldNotDelete": "No fue posible eliminar la cuenta.",
+    "notifyNow": "Notificación (ahora)",
+    "notifyNowBody": "Notificación local inmediata: toca para abrir.",
+    "notifyIn10s": "Notificación en 10s",
+    "notifyIn10sScheduled": "Se enviará una notificación en ~10 segundos.",
+    "reminderTitle": "Recordatorio de Agendamiento",
+    "reminderBody10s": "Te avisaré en ~10 segundos ({time})."
+  },
+  "notifications": {
+    "channelGeneral": "General"
+  },
+
+  "about": {
+    "title": "🚀 Acerca de MotoPatio",
+    "description": "MotoPatio es una aplicación móvil desarrollada para optimizar el mapeo inteligente y la gestión de motocicletas en patios de alquiler. Ofrece registro completo de motos, sucursales, usuarios, citas y eventos, con sincronización mediante API REST en .NET y soporte de notificaciones push con Expo. También incluye autenticación con Firebase, modo claro/oscuro, internacionalización (i18n) e integración en tiempo real con el sistema web MotoTrack.",
+    "devs": {
+      "title": "👨‍💻 Desarrolladores",
+      "rafael": "• Rafael Rodrigues de Almeida — RM 557837",
+      "lucas": "• Lucas Kenji Miyahira — RM 555368"
+    },
+    "techs": {
+      "title": "📱 Tecnologías Utilizadas"
+    },
+    "license": {
+      "title": "📄 Licencia",
+      "text": "Esta aplicación fue desarrollada exclusivamente con fines académicos como parte de la asignatura Mobile Application Development de FIAP, demostrando el uso de tecnologías modernas en un entorno multiplataforma."
+    }
+  },
+
+
+  "common": {
+    "validation": "Validación",
+    "loadFail": "Error al cargar",
+    "saveFail": "Error al guardar",
+    "deleteFail": "No fue posible eliminar",
+    "networkDown": "Sin conexión. Verifica tu internet.",
+    "success": "Éxito",
+    "error": "Error",
+    "back": "Volver",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "deleted": "Eliminado",
+    "actions": "Acciones",
+    "irreversible": "Acción irreversible",
+    "save": "Guardar",
+    "update": "Actualizar",
+    "new": "Nuevo",
+    "refresh": "Actualizar",
+    "empty": "No se encontraron registros.",
+    "saving": "Guardando...",
+    "editing": "Editando...",
+    "deleting": "Eliminando...",
+    "deleteConfirm": "¿Confirmar eliminación?",
+    "deleteIrreversible": "Esta acción no se puede deshacer."
+  },
+  "sched": {
+    "form": {
+      "newTitle": "📅 Nuevo Agendamiento",
+      "editTitle": "✏️ Editar Agendamiento",
+      "subtitleNew": "Completa los datos para crear un agendamiento.",
+      "subtitleEdit": "Actualiza los campos necesarios.",
+      "dateTimeLabel": "Fecha/Hora",
+      "dateTimePlaceholder": "dd/mm/aaaa hh:mm:ss",
+      "motoIdLabel": "Moto (ID)",
+      "motoIdPlaceholder": "ID de la moto",
+      "descLabel": "Descripción",
+      "descPlaceholder": "Ej.: Cambio de aceite y revisión general",
+      "created": "Agendamiento creado.",
+      "updated": "Agendamiento actualizado.",
+      "removed": "Agendamiento eliminado.",
+      "invalidId": "Agendamiento inválido.",
+      "btnSave": "Guardar agendamiento",
+      "btnUpdate": "Actualizar agendamiento",
+      "btnDelete": "Eliminar agendamiento",
+      "btnHint": "Valida los campos y envía los datos del agendamiento."
+    },
+    "validation": {
+      "fullDate": "Indica Fecha/Hora completa (dd/mm/aaaa hh:mm).",
+      "invalidDate": "Fecha/Hora inválida.",
+      "futureDate": "La Fecha/Hora debe ser futura.",
+      "motoRequired": "Indica el ID de la moto.",
+      "descMin": "La descripción debe tener al menos 5 caracteres."
+    },
+    "notify": {
+      "created": "Agendamiento #{id} creado.",
+      "updated": "Agendamiento #{id} actualizado.",
+      "deleted": "Agendamiento #{id} eliminado."
+    },
+    "reminderAt": "Agendamiento #{id} a las {time}.",
+    "list": {
+      "title": "📅 Agendamientos",
+      "subtitle": "Administra tus agendamientos.",
+      "dateTime": "Fecha/Hora",
+      "motoId": "Moto ID",
+      "editItemA11y": "Editar agendamiento {id}",
+      "backHint": "Vuelve a la pantalla anterior",
+      "newA11y": "Crear nuevo agendamiento",
+      "refreshA11y": "Actualizar lista de agendamientos"
+    }
+  },
+  "common": {
+    "offline": "Sin conexión. Verifica tu internet.",
+    "loadFail": "Error al cargar",
+    "saveFail": "Error al guardar",
+    "deleteFail": "No fue posible eliminar",
+    "deleted": "Eliminado",
+    "saving": "Guardando...",
+    "update": "Actualizar",
+    "save": "Guardar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "deleting": "Eliminando...",
+    "back": "Volver",
+    "backHint": "Vuelve a la pantalla anterior",
+    "new": "➕ Nuevo",
+    "refresh": "Actualizar",
+    "noRecords": "No se encontraron registros.",
+    "cancel": "Cancelar",
+    "confirmDeleteTitle": "¿Confirmar eliminación?",
+    "confirmDeleteMessage": "Esta acción no se puede deshacer."
+  },
+  "eventos": {
+    "list": {
+      "title": "📌 Eventos",
+      "subtitle": "Registros de mantenimiento, siniestro y otros eventos.",
+      "a11yCreate": "Crear nuevo evento",
+      "a11yEdit": "Editar evento {{id}}",
+      "dataHora": "Fecha/Hora: {{value}}",
+      "motoId": "Moto ID: {{value}}",
+      "tipo": "Tipo: {{value}}"
+    },
+    "form": {
+      "titleNew": "📌 Nuevo Evento",
+      "titleEdit": "✏️ Editar Evento",
+      "subtitleNew": "Completa los datos para crear un evento.",
+      "subtitleEdit": "Actualiza los campos necesarios.",
+      "dataHoraLabel": "Fecha/Hora",
+      "dataHoraPlaceholder": "dd/mm/aaaa hh:mm:ss",
+      "motoIdLabel": "Moto (ID)",
+      "motoIdPlaceholder": "ID de la moto",
+      "tipoLabel": "Tipo",
+      "tipoPlaceholder": "Ej.: MANTENIMIENTO, SINIESTRO, DEVOLUCIÓN",
+      "motivoLabel": "Motivo",
+      "motivoPlaceholder": "Describe brevemente",
+      "localizacaoLabel": "Ubicación",
+      "localizacaoPlaceholder": "Ej.: Sucursal Vila Mariana - Box 3",
+      "errDateRequired": "Indica Fecha/Hora completa (dd/mm/aaaa hh:mm).",
+      "errDateInvalid": "Fecha/Hora inválida.",
+      "errMotoRequired": "Indica el ID de la moto.",
+      "errTipoRequired": "Indica el tipo de evento.",
+      "errMotivoMin": "El motivo debe tener al menos 3 caracteres.",
+      "invalidEvent": "Evento inválido.",
+      "created": "Evento creado.",
+      "updated": "Evento actualizado.",
+      "removed": "Evento eliminado.",
+      "actionsTitle": "Acciones",
+      "a11ySave": "Guardar evento",
+      "a11yUpdate": "Actualizar evento",
+      "a11yHintSubmit": "Valida los campos y envía los datos del evento.",
+      "a11yDelete": "Eliminar evento",
+      "a11yDeleteHint": "Acción irreversible"
+    },
+    "notifications": {
+      "created": "Evento #{{id}} creado.",
+      "updated": "Evento #{{id}} actualizado.",
+      "deleted": "Evento #{{id}} eliminado."
+    }
+  },
+
+  "filiais": {
+    "list": {
+      "title": "🏢 Sucursales",
+      "subtitle": "Administra las unidades registradas.",
+      "a11yCreate": "Crear nueva sucursal",
+      "a11yEdit": "Editar sucursal {{id}}",
+      "nome": "Nombre: {{value}}",
+      "cidadeUf": "Ciudad/UF: {{cidade}}/{{uf}}",
+      "cep": "Código Postal: {{value}}"
+    },
+    "form": {
+      "titleNew": "🏢 Nueva Sucursal",
+      "titleEdit": "✏️ Editar Sucursal",
+      "subtitleNew": "Completa los datos para crear una sucursal.",
+      "subtitleEdit": "Actualiza los campos necesarios.",
+      "a11yLang": "Idioma",
+      "nomeLabel": "Nombre",
+      "nomePlaceholder": "Ej.: Mottu Vila Mariana",
+      "enderecoLabel": "Dirección",
+      "enderecoPlaceholder": "Calle / Av., nº, complemento",
+      "bairroLabel": "Barrio",
+      "bairroPlaceholder": "Ej.: Paraíso",
+      "cidadeLabel": "Ciudad",
+      "cidadePlaceholder": "Ej.: São Paulo",
+      "ufLabel": "UF",
+      "ufPlaceholder": "SP",
+      "cepLabel": "Código Postal",
+      "cepPlaceholder": "99999-999",
+      "latitudeLabel": "Latitud",
+      "latitudePlaceholder": "-23.567890",
+      "longitudeLabel": "Longitud",
+      "longitudePlaceholder": "-46.653210",
+      "errNomeRequired": "Indica el nombre de la sucursal.",
+      "errUF": "UF debe tener 2 letras (ej.: SP).",
+      "errCEP": "Código Postal inválido. Usa el formato 99999-999.",
+      "errLatitude": "La latitud debe estar entre -90 y 90.",
+      "errLongitude": "La longitud debe estar entre -180 y 180.",
+      "errGeneric": "Corrige los campos resaltados.",
+      "invalidItem": "Sucursal inválida.",
+      "created": "Sucursal creada.",
+      "updated": "Sucursal actualizada.",
+      "removed": "Sucursal eliminada.",
+      "actionsTitle": "Acciones",
+      "a11ySave": "Guardar sucursal",
+      "a11yUpdate": "Actualizar sucursal",
+      "a11yHintSubmit": "Valida los campos y envía los datos de la sucursal.",
+      "a11yDelete": "Eliminar sucursal",
+      "a11yDeleteHint": "Acción irreversible"
+    },
+    "notifications": {
+      "created": "Sucursal #{{id}} creada.",
+      "updated": "Sucursal #{{id}} actualizada.",
+      "deleted": "Sucursal #{{id}} eliminada."
+    }
+  },
+
+
+  "motos": {
+    "list": {
+      "title": "🏍️ Motos",
+      "subtitle": "Administra tu flota: placa, modelo, marca, año y estado.",
+      "a11yCreate": "Registrar nueva moto",
+      "a11yEdit": "Editar moto {{placa}}",
+      "anoStatus": "Año: {{ano}}  •  Estado: {{status}}"
+    },
+    "form": {
+      "titleNew": "🏍️ Nueva Moto",
+      "titleEdit": "✏️ Editar Moto",
+      "subtitleNew": "Completa los datos para registrar una moto.",
+      "subtitleEdit": "Actualiza los campos necesarios.",
+      "a11yLang": "Idioma",
+      "placaLabel": "Placa",
+      "placaPlaceholder": "AAA0A00",
+      "modeloLabel": "Modelo",
+      "modeloPlaceholder": "Ej.: CG 160 Titan",
+      "marcaLabel": "Marca",
+      "marcaPlaceholder": "Ej.: Honda",
+      "anoLabel": "Año",
+      "anoPlaceholder": "Ej.: 2022",
+      "statusLabel": "Estado",
+      "statusPlaceholder": "Ej.: Activa, Mantenimiento, Inactiva",
+      "errPlacaRequired": "Indica la placa.",
+      "errPlacaLen": "La placa debe tener 7 caracteres alfanuméricos.",
+      "errPlacaInvalid": "Placa inválida (usa letras y números).",
+      "errAnoInt": "El año debe ser entero.",
+      "errAnoRange": "Año inválido (1900 a 2100).",
+      "errGeneric": "Corrige los campos resaltados.",
+      "invalidItem": "Moto inválida.",
+      "created": "Moto creada.",
+      "updated": "Moto actualizada.",
+      "removed": "Moto eliminada.",
+      "actionsTitle": "Acciones",
+      "a11ySave": "Guardar moto",
+      "a11yUpdate": "Actualizar moto",
+      "a11yHintSubmit": "Valida los campos y envía los datos de la moto.",
+      "a11yDelete": "Eliminar moto",
+      "a11yDeleteHint": "Acción irreversible"
+    },
+    "notifications": {
+      "created": "Moto #{{id}} creada.",
+      "updated": "Moto #{{id}} actualizada.",
+      "deleted": "Moto #{{id}} eliminada."
+    }
+  },
+
+  "usuarios": {
+    "list": {
+      "title": "👤 Usuarios",
+      "subtitle": "Administra nombres, correos y perfiles de acceso.",
+      "a11yCreate": "Crear nuevo usuario",
+      "a11yEdit": "Editar usuario {{nome}}",
+      "perfil": "Perfil: {{perfil}}"
+    },
+    "form": {
+      "titleNew": "👤 Nuevo Usuario",
+      "titleEdit": "✏️ Editar Usuario",
+      "subtitleNew": "Completa los datos para registrar un usuario.",
+      "subtitleEdit": "Actualiza los campos necesarios.",
+      "a11yLang": "Idioma",
+      "nomeLabel": "Nombre",
+      "nomePlaceholder": "Ej.: María Silva",
+      "emailLabel": "Correo",
+      "emailPlaceholder": "nombre@empresa.com",
+      "perfilLabel": "Perfil",
+      "perfis": {
+        "operador": "Operador",
+        "gestor": "Gestor",
+        "administrador": "Administrador"
+      },
+      "filialLabel": "Sucursal (ID)",
+      "filialPlaceholder": "Ej.: 42 (opcional)",
+      "senhaLabel": "Contraseña",
+      "senhaPlaceholder": "Crea una contraseña fuerte",
+      "senhaHint": "La contraseña se envía solo en el alta y no aparece en las respuestas de la API.",
+      "errNomeRequired": "Indica el nombre.",
+      "errEmail": "Indica un correo válido.",
+      "errPerfil": "Selecciona Operador, Gestor o Administrador.",
+      "errSenhaRequired": "Define una contraseña para el nuevo usuario.",
+      "errSenhaMin": "Contraseña demasiado corta (mín. 6 caracteres).",
+      "errGeneric": "Corrige los campos resaltados.",
+      "invalidItem": "Usuario inválido.",
+      "created": "Usuario creado.",
+      "updated": "Usuario actualizado.",
+      "removed": "Usuario eliminado.",
+      "actionsTitle": "Acciones",
+      "a11ySave": "Guardar usuario",
+      "a11yUpdate": "Actualizar usuario",
+      "a11yHintSubmit": "Valida los campos y envía los datos del usuario.",
+      "a11yDelete": "Eliminar usuario",
+      "a11yDeleteHint": "Acción irreversible"
+    },
+    "notifications": {
+      "created": "Usuario #{{id}} creado.",
+      "updated": "Usuario #{{id}} actualizado.",
+      "deleted": "Usuario #{{id}} eliminado."
+    }
+  }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

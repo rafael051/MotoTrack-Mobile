@@ -1,3 +1,4 @@
+// File: app/agendamentos/list.tsx
 import React, { useCallback, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, ActivityIndicator, Alert, FlatList, Pressable } from "react-native";
@@ -7,14 +8,14 @@ import { useTheme } from "../../src/context/ThemeContext";
 import globalStyles, { listStyles } from "../../src/styles/globalStyles";
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
 import { MotoTrack, type Agendamento } from "../../src/services/mototrack";
+import { useTranslation } from "react-i18next";
 
 /* =========================
-   🧰 Helpers de Data/Hora
-   ========================= */
+   Helpers de Data/Hora
+========================= */
 const sanitize = (t?: string) => (t ?? "").replace(/[“”"']/g, "").trim();
 
 const tryParsePt = (s: string): Date | null => {
-    // dd/mm/aaaa hh:mm[:ss]
     const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
     if (!m) return null;
     const [, dd, mm, yyyy, HH = "00", MI = "00", SS = "00"] = m;
@@ -25,14 +26,9 @@ const tryParsePt = (s: string): Date | null => {
 const asDate = (value?: string | Date | null): Date | null => {
     if (!value) return null;
     if (value instanceof Date) return isNaN(+value) ? null : value;
-
     const raw = sanitize(String(value));
-
-    // tenta pt-BR primeiro
     const pt = tryParsePt(raw);
     if (pt) return pt;
-
-    // tenta Date nativo (ISO com/sem offset, epoch string, etc.)
     const d = new Date(raw);
     return isNaN(+d) ? null : d;
 };
@@ -52,12 +48,13 @@ const formatPt = (d: Date, showSecondsIfAny = true) => {
 export default function AgendamentosList() {
     const { colors } = useTheme();
     const router = useRouter();
+    const { t, i18n } = useTranslation();
+    const mudarIdioma = (lang: string) => i18n.changeLanguage(lang);
 
     const [itens, setItens] = useState<Agendamento[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
 
-    // ⬇️ NOVO: pull-to-refresh e controle de exclusão em andamento
     const [refreshing, setRefreshing] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -67,7 +64,6 @@ export default function AgendamentosList() {
         try {
             const data = await MotoTrack.getAgendamentos();
 
-            // ordena por data (desc), usando os helpers (tolerante a formatos)
             const withSort = [...data].sort((a, b) => {
                 const aRaw = (a as any).dataHora ?? (a as any).dataAgendada ?? "";
                 const bRaw = (b as any).dataHora ?? (b as any).dataAgendada ?? "";
@@ -80,13 +76,13 @@ export default function AgendamentosList() {
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
             const offline = message.includes("Network") || (e as any)?.name === "TypeError";
-            const msg = offline ? "Sem conexão. Verifique sua internet." : "Falha ao carregar";
+            const msg = offline ? t("common.networkDown", "Sem conexão. Verifique sua internet.") : t("common.loadFail", "Falha ao carregar");
             setErro(msg);
             setItens([]);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [t]);
 
     useFocusEffect(
         useCallback(() => {
@@ -95,7 +91,6 @@ export default function AgendamentosList() {
         }, [carregar])
     );
 
-    // ⬇️ NOVO: ação de pull-to-refresh
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await carregar();
@@ -103,43 +98,40 @@ export default function AgendamentosList() {
     }, [carregar]);
 
     const novo = () => router.push("/agendamentos/form");
-    const editar = (id: number) =>
-        router.push({ pathname: "/agendamentos/form", params: { id: String(id) } });
+    const editar = (id: number) => router.push({ pathname: "/agendamentos/form", params: { id: String(id) } });
 
     const excluir = async (id: number) => {
         const ok = await new Promise<boolean>((resolve) => {
-            Alert.alert("Confirmar exclusão?", "Essa ação não poderá ser desfeita.", [
-                { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-                { text: "Excluir", style: "destructive", onPress: () => resolve(true) },
-            ]);
+            Alert.alert(
+                t("common.deleteConfirm", "Confirmar exclusão?"),
+                t("common.deleteIrreversible", "Essa ação não poderá ser desfeita."),
+                [
+                    { text: t("common.cancel", "Cancelar"), style: "cancel", onPress: () => resolve(false) },
+                    { text: t("common.delete", "Excluir"), style: "destructive", onPress: () => resolve(true) },
+                ]
+            );
         });
         if (!ok) return;
         try {
-            setDeletingId(id); // ⬅️ NOVO: evita duplo clique
+            setDeletingId(id);
             await MotoTrack.deleteAgendamento(id);
             await carregar();
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
             const offline = message.includes("Network") || (e as any)?.name === "TypeError";
-            const msg = offline ? "Sem conexão. Verifique sua internet." : "Não foi possível excluir";
-            Alert.alert("Erro", msg);
+            const msg = offline ? t("common.networkDown", "Sem conexão. Verifique sua internet.") : t("common.deleteFail", "Não foi possível excluir");
+            Alert.alert(t("common.error", "Erro"), msg);
         } finally {
             setDeletingId(null);
         }
     };
 
     const renderItem = ({ item }: { item: Agendamento }) => {
-        // aceita dataHora (preferido) ou dataAgendada (fallback)
-        const rawData =
-            (item as any).dataHora ??
-            (item as any).dataAgendada ??
-            "";
-
+        const rawData = (item as any).dataHora ?? (item as any).dataAgendada ?? "";
         const d = asDate(rawData);
         const quando = d ? formatPt(d, true) : "—";
         const motoId = (item as any).motoId ?? "—";
         const descricao = (item as any).descricao ?? "—";
-
         const isDeleting = deletingId === item.id;
 
         return (
@@ -147,16 +139,17 @@ export default function AgendamentosList() {
                 android_ripple={{ color: colors.ripple }}
                 onPress={() => editar(item.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Editar agendamento ${item.id}`}
-                style={[
-                    listStyles.rowItem,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
+                accessibilityLabel={t("sched.list.editItemA11y", "Editar agendamento {id}").replace("{id}", String(item.id))}
+                style={[listStyles.rowItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
                 <View style={{ flex: 1 }}>
                     <Text style={[globalStyles.cardPlaca, { color: colors.text }]}>#{item.id}</Text>
-                    <Text style={[globalStyles.text, { color: colors.text }]}>Data/Hora: {quando}</Text>
-                    <Text style={[globalStyles.text, { color: colors.mutedText }]}>Moto ID: {motoId}</Text>
+                    <Text style={[globalStyles.text, { color: colors.text }]}>
+                        {t("sched.list.dateTime", "Data/Hora")}: {quando}
+                    </Text>
+                    <Text style={[globalStyles.text, { color: colors.mutedText }]}>
+                        {t("sched.list.motoId", "Moto ID")}: {motoId}
+                    </Text>
                     <Text style={[globalStyles.text, { color: colors.mutedText }]} numberOfLines={2}>
                         {descricao}
                     </Text>
@@ -172,7 +165,7 @@ export default function AgendamentosList() {
                             { backgroundColor: colors.surface, borderColor: colors.border, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: colors.text }}>{isDeleting ? "..." : "Editar"}</Text>
+                        <Text style={{ color: colors.text }}>{isDeleting ? "..." : t("common.edit", "Editar")}</Text>
                     </Pressable>
 
                     <Pressable
@@ -184,14 +177,13 @@ export default function AgendamentosList() {
                             { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: "#fecaca" }}>{isDeleting ? "Excluindo..." : "Excluir"}</Text>
+                        <Text style={{ color: "#fecaca" }}>{isDeleting ? t("common.deleting", "Excluindo...") : t("common.delete", "Excluir")}</Text>
                     </Pressable>
                 </View>
             </Pressable>
         );
     };
 
-    // memoiza para evitar re-render desnecessário
     const keyExtractor = useCallback((i: Agendamento) => String(i.id), []);
 
     return (
@@ -200,70 +192,54 @@ export default function AgendamentosList() {
                 {/* Cabeçalho */}
                 <View>
                     <Text accessibilityRole="header" style={[globalStyles.title, { color: colors.text }]}>
-                        📅 Agendamentos
+                        {t("sched.list.title", "📅 Agendamentos")}
                     </Text>
                     <Text style={[globalStyles.text, { color: colors.mutedText }]}>
-                        Gerencie seus agendamentos.
+                        {t("sched.list.subtitle", "Gerencie seus agendamentos.")}
                     </Text>
                 </View>
 
                 {/* Ações topo */}
                 <View style={listStyles.row}>
-                    {/* ⬇️ NOVO: Botão Voltar */}
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Voltar"
-                        accessibilityHint="Retorna para a tela anterior"
+                        accessibilityLabel={t("common.back", "Voltar")}
+                        accessibilityHint={t("sched.list.backHint", "Retorna para a tela anterior")}
                         android_ripple={{ color: colors.ripple }}
-                        style={[
-                            globalStyles.button,
-                            { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-                        ]}
+                        style={[globalStyles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
                         onPress={() => router.back()}
                     >
-                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Voltar</Text>
+                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>{t("common.back", "Voltar")}</Text>
                     </Pressable>
 
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Criar novo agendamento"
+                        accessibilityLabel={t("sched.list.newA11y", "Criar novo agendamento")}
                         android_ripple={{ color: colors.ripple }}
                         style={[globalStyles.button, { backgroundColor: colors.button }]}
                         onPress={novo}
                     >
-                        <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>➕ Novo</Text>
+                        <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>➕ {t("common.new", "Novo")}</Text>
                     </Pressable>
 
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Atualizar lista de agendamentos"
+                        accessibilityLabel={t("sched.list.refreshA11y", "Atualizar lista de agendamentos")}
                         android_ripple={{ color: colors.ripple }}
-                        style={[
-                            globalStyles.button,
-                            { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-                        ]}
+                        style={[globalStyles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
                         onPress={carregar}
                     >
-                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Atualizar</Text>
+                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>{t("common.refresh", "Atualizar")}</Text>
                     </Pressable>
                 </View>
 
                 {/* Lista */}
-                <View
-                    style={[
-                        listStyles.cardOutlined,
-                        { backgroundColor: colors.surface, borderColor: colors.border },
-                    ]}
-                >
+                <View style={[listStyles.cardOutlined, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     {loading ? (
                         <ActivityIndicator />
                     ) : (
                         <>
-                            {!!erro && (
-                                <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
-                                    {erro}
-                                </Text>
-                            )}
+                            {!!erro && <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>{erro}</Text>}
 
                             <FlatList
                                 data={itens}
@@ -271,16 +247,39 @@ export default function AgendamentosList() {
                                 ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
                                 ListEmptyComponent={
                                     <Text style={[globalStyles.text, { color: colors.mutedText, textAlign: "center" }]}>
-                                        Nenhum registro encontrado.
+                                        {t("common.empty", "Nenhum registro encontrado.")}
                                     </Text>
                                 }
                                 renderItem={renderItem}
-                                // ⬇️ NOVO: pull-to-refresh nativo
                                 refreshing={refreshing}
                                 onRefresh={onRefresh}
                             />
                         </>
                     )}
+                </View>
+
+                {/* Botões de idioma (padrão) */}
+                <View style={globalStyles.rowCenter}>
+                    <Pressable
+                        style={[globalStyles.langButton, { backgroundColor: colors.langPtBg }]}
+                        onPress={() => mudarIdioma("pt")}
+                    >
+                        <Text style={{ color: colors.langPtText }}>PT</Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={[
+                            globalStyles.langButton,
+                            {
+                                backgroundColor: colors.langEsBg,
+                                borderWidth: colors.langEsBorder ? 1 : 0,
+                                borderColor: colors.langEsBorder ?? "transparent",
+                            },
+                        ]}
+                        onPress={() => mudarIdioma("es")}
+                    >
+                        <Text style={{ color: colors.langEsText }}>ES</Text>
+                    </Pressable>
                 </View>
 
                 {/* Rodapé – Alternar tema */}

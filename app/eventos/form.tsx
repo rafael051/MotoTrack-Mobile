@@ -10,18 +10,11 @@ import { useTheme } from "../../src/context/ThemeContext";
 import globalStyles, { formStyles, listStyles } from "../../src/styles/globalStyles";
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
 import { MotoTrack, type Evento } from "../../src/services/mototrack";
-
 import { notifyCRUD } from "../../src/notifications/notificationsService";
+import { useTranslation } from "react-i18next";
 
-/* ============================================================================
-   🕒 Data/Hora (PT-BR)
-   - Digitação suave: apenas insere separadores (sem zeros automáticos).
-   - No onBlur/salvar: normaliza p/ dd/MM/yyyy HH:mm:ss (com :00 se faltar).
-   - API: envia/recebe `dataHora` como string PT-BR (NÃO ISO).
-   ============================================================================ */
-
+/* ============================================================================ */
 const sanitize = (t?: string) => (t ?? "").replace(/[“”"']/g, "").trim();
-
 /** Máscara SUAVE: insere separadores sem completar zeros */
 const maskDateTime = (t: string) => {
     const d = sanitize(t).replace(/\D/g, "").slice(0, 14); // dd mm aaaa hh mm ss
@@ -33,11 +26,9 @@ const maskDateTime = (t: string) => {
     if (d.length >= 13) out += ":" + d.slice(12, 14);
     return out;
 };
-
 /** Normaliza ao sair do campo: dd/MM/yyyy HH:mm:ss (ss=00 se faltar) */
 const normalizePtDateTime = (t: string) => {
     const d = sanitize(t).replace(/\D/g, "");
-    // mínimo: dd mm aaaa hh mm => 12 dígitos
     if (d.length < 12) return "";
     const pad2 = (v: string) => v.padStart(2, "0");
     const pad4 = (v: string) => v.padStart(4, "0");
@@ -49,7 +40,6 @@ const normalizePtDateTime = (t: string) => {
     const SS = pad2(d.slice(12, 14) || "00");
     return `${dd}/${mm}/${yyyy} ${HH}:${MI}:${SS}`;
 };
-
 /** Parse "dd/MM/yyyy HH:mm[:ss]" -> Date (local) */
 const parsePtToDate = (input?: string): Date | null => {
     const s = sanitize(input ?? "");
@@ -61,16 +51,20 @@ const parsePtToDate = (input?: string): Date | null => {
 };
 
 export default function EventoForm() {
+    const { t, i18n } = useTranslation();
     const { id } = useLocalSearchParams<{ id?: string }>();
     const isEdit = !!id;
     const router = useRouter();
     const { colors } = useTheme();
 
+    // === Idioma ===
+    const lang = (i18n.language || "pt").startsWith("es") ? "es" : "pt";
+    const changeLang = (code: "pt" | "es") => i18n.changeLanguage(code);
+
     const [loading, setLoading] = useState(true);
     const [salvando, setSalvando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
 
-    // erros por campo
     const [fieldErrors, setFieldErrors] = useState<{
         data?: string; motoId?: string; tipo?: string; motivo?: string;
     }>({});
@@ -78,19 +72,18 @@ export default function EventoForm() {
     const [form, setForm] = useState<Partial<Evento & {
         motoId?: number; tipo?: string; motivo?: string; localizacao?: string | null; dataHora?: string;
     }>>({
-        dataHora: "",   // PT-BR no salvar
+        dataHora: "",
         motoId: undefined,
         tipo: "",
         motivo: "",
         localizacao: "",
     });
 
-    // Campo visual
     const [dataHoraText, setDataHoraText] = useState<string>("");
 
     const titulo = useMemo(
-        () => (isEdit ? "✏️ Editar Evento" : "📌 Novo Evento"),
-        [isEdit]
+        () => (isEdit ? t("eventos.form.titleEdit") : t("eventos.form.titleNew")),
+        [isEdit, t]
     );
 
     const carregar = async () => {
@@ -103,14 +96,14 @@ export default function EventoForm() {
             } else {
                 const _id = Number(id);
                 if (!Number.isFinite(_id) || _id <= 0) {
-                    Alert.alert("Aviso", "Evento inválido.");
+                    Alert.alert(t("common.attention"), t("eventos.form.invalidEvent"));
                     router.replace("/eventos/list");
                     return;
                 }
                 const found = await MotoTrack.getEvento(_id);
                 setForm({
                     id: (found as any).id,
-                    dataHora: (found as any).dataHora,    // PT-BR vindo da API
+                    dataHora: (found as any).dataHora,
                     motoId: (found as any).motoId,
                     tipo: (found as any).tipo,
                     motivo: (found as any).motivo,
@@ -121,8 +114,8 @@ export default function EventoForm() {
         } catch (e: any) {
             const msg =
                 e?.message?.includes("Network") || e?.name === "TypeError"
-                    ? "Sem conexão. Verifique sua internet."
-                    : (e?.message ?? "Falha ao carregar");
+                    ? t("common.offline")
+                    : (e?.message ?? t("common.loadFail"));
             setErro(msg);
         } finally {
             setLoading(false);
@@ -131,7 +124,6 @@ export default function EventoForm() {
 
     useEffect(() => { carregar(); }, [id]);
 
-    // Re-sincroniza quando form.dataHora mudar
     useEffect(() => {
         if (loading) return;
         setDataHoraText(form?.dataHora ?? "");
@@ -139,44 +131,38 @@ export default function EventoForm() {
 
     const salvar = async () => {
         setFieldErrors({});
-
-        // Garante normalização mesmo sem blur
         const normalized = normalizePtDateTime(dataHoraText);
         if (!normalized) {
-            setFieldErrors((e) => ({ ...e, data: "Informe Data/Hora completa (dd/mm/aaaa hh:mm)." }));
-            Alert.alert("Validação", "Informe Data/Hora completa (dd/mm/aaaa hh:mm).");
+            setFieldErrors((e) => ({ ...e, data: t("eventos.form.errDateRequired") }));
+            Alert.alert(t("common.validation"), t("eventos.form.errDateRequired"));
             return;
         }
         const parsed = parsePtToDate(normalized);
         if (!parsed) {
-            setFieldErrors((e) => ({ ...e, data: "Data/Hora inválida." }));
-            Alert.alert("Validação", "Data/Hora inválida.");
+            setFieldErrors((e) => ({ ...e, data: t("eventos.form.errDateInvalid") }));
+            Alert.alert(t("common.validation"), t("eventos.form.errDateInvalid"));
             return;
         }
-
         if (!form.motoId) {
-            setFieldErrors((e) => ({ ...e, motoId: "Informe o ID da moto." }));
-            Alert.alert("Validação", "Informe o ID da moto");
+            setFieldErrors((e) => ({ ...e, motoId: t("eventos.form.errMotoRequired") }));
+            Alert.alert(t("common.validation"), t("eventos.form.errMotoRequired"));
             return;
         }
-
         const tipo = sanitize(form.tipo ?? "");
         if (!tipo) {
-            setFieldErrors((e) => ({ ...e, tipo: "Informe o tipo do evento." }));
-            Alert.alert("Validação", "Informe o tipo do evento");
+            setFieldErrors((e) => ({ ...e, tipo: t("eventos.form.errTipoRequired") }));
+            Alert.alert(t("common.validation"), t("eventos.form.errTipoRequired"));
             return;
         }
-
         const motivo = sanitize(form.motivo ?? "");
         if (!motivo || motivo.length < 3) {
-            setFieldErrors((e) => ({ ...e, motivo: "Motivo deve ter ao menos 3 caracteres." }));
-            Alert.alert("Validação", "Informe o motivo");
+            setFieldErrors((e) => ({ ...e, motivo: t("eventos.form.errMotivoMin") }));
+            Alert.alert(t("common.validation"), t("eventos.form.errMotivoMin"));
             return;
         }
 
         setSalvando(true);
         try {
-            // ⚠️ API espera dataHora em PT-BR (não ISO)
             const payload = {
                 dataHora: normalized,
                 motoId: Number(form.motoId),
@@ -187,27 +173,21 @@ export default function EventoForm() {
 
             if (!isEdit) {
                 const novo = await MotoTrack.createEvento(payload);
-
-                // ✅ Notificação de CRUD
-                await notifyCRUD("EVENTO", "CREATE", `Evento #${(novo as any).id} criado.`);
-
-                Alert.alert("Sucesso", "Evento criado.");
+                await notifyCRUD("EVENTO", "CREATE", t("eventos.notifications.created", { id: (novo as any).id }));
+                Alert.alert(t("common.success"), t("eventos.form.created"));
                 router.replace(`/eventos/form?id=${(novo as any).id}`);
             } else {
                 await MotoTrack.updateEvento(Number(id), payload);
-
-                // ✅ Notificação de CRUD
-                await notifyCRUD("EVENTO", "UPDATE", `Evento #${id} atualizado.`);
-
-                Alert.alert("Sucesso", "Evento atualizado.");
+                await notifyCRUD("EVENTO", "UPDATE", t("eventos.notifications.updated", { id }));
+                Alert.alert(t("common.success"), t("eventos.form.updated"));
                 router.replace("/eventos/list");
             }
         } catch (e: any) {
             const msg =
                 e?.message?.includes("Network") || e?.name === "TypeError"
-                    ? "Sem conexão. Verifique sua internet."
-                    : (e?.message ?? "Falha ao salvar");
-            Alert.alert("Erro", msg);
+                    ? t("common.offline")
+                    : (e?.message ?? t("common.saveFail"));
+            Alert.alert(t("common.error"), msg);
         } finally {
             setSalvando(false);
         }
@@ -216,37 +196,71 @@ export default function EventoForm() {
     const excluir = async () => {
         if (!isEdit) return;
         const ok = await new Promise<boolean>((resolve) => {
-            Alert.alert("Confirmar exclusão?", "Essa ação não poderá ser desfeita.", [
-                { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-                { text: "Excluir", style: "destructive", onPress: () => resolve(true) },
-            ]);
+            Alert.alert(
+                t("common.confirmDeleteTitle"),
+                t("common.confirmDeleteMessage"),
+                [
+                    { text: t("common.cancel"), style: "cancel", onPress: () => resolve(false) },
+                    { text: t("common.delete"), style: "destructive", onPress: () => resolve(true) },
+                ]
+            );
         });
         if (!ok) return;
         try {
             await MotoTrack.deleteEvento(Number(id));
-
-            // ✅ Notificação de CRUD
-            await notifyCRUD("EVENTO", "DELETE", `Evento #${id} excluído.`);
-
-            Alert.alert("Excluído", "Evento removido.");
+            await notifyCRUD("EVENTO", "DELETE", t("eventos.notifications.deleted", { id }));
+            Alert.alert(t("common.deleted"), t("eventos.form.removed"));
             router.replace("/eventos/list");
         } catch (e: any) {
             const msg =
                 e?.message?.includes("Network") || e?.name === "TypeError"
-                    ? "Sem conexão. Verifique sua internet."
-                    : (e?.message ?? "Não foi possível excluir");
-            Alert.alert("Erro", msg);
+                    ? t("common.offline")
+                    : (e?.message ?? t("common.deleteFail"));
+            Alert.alert(t("common.error"), msg);
         }
+    };
+
+    // ====== UI ======
+    const LangButton = ({ code, label }: { code: "pt" | "es"; label: string }) => {
+        const selected = lang === code;
+        return (
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Idioma ${label}`}
+                android_ripple={{ color: colors.ripple }}
+                onPress={() => changeLang(code)}
+                style={[
+                    listStyles.smallBtn,
+                    {
+                        backgroundColor: selected ? colors.button : colors.surface,
+                        borderColor: selected ? colors.button : colors.border,
+                        opacity: salvando ? 0.7 : 1,
+                    },
+                ]}
+            >
+                <Text style={{ color: selected ? colors.buttonText : colors.text }}>{label}</Text>
+            </Pressable>
+        );
     };
 
     return (
         <SafeAreaView style={[globalStyles.container, { backgroundColor: colors.background }]}>
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
                 <ScrollView>
-                    <Text style={[globalStyles.title, { color: colors.text }]}>{titulo}</Text>
-                    <Text style={[globalStyles.text, { color: colors.mutedText, textAlign: "center" }]}>
-                        {isEdit ? "Atualize os campos necessários." : "Preencha os dados para criar um evento."}
-                    </Text>
+
+                    {/* Título + Troca de Idioma */}
+                    <View style={[listStyles.row, { alignItems: "center" }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[globalStyles.title, { color: colors.text }]}>{titulo}</Text>
+                            <Text style={[globalStyles.text, { color: colors.mutedText, textAlign: "left" }]}>
+                                {isEdit ? t("eventos.form.subtitleEdit") : t("eventos.form.subtitleNew")}
+                            </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                            <LangButton code="pt" label="PT" />
+                            <LangButton code="es" label="ES" />
+                        </View>
+                    </View>
 
                     <View style={[formStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         {loading ? (
@@ -259,12 +273,14 @@ export default function EventoForm() {
 
                                 {/* Data/Hora */}
                                 <View style={globalStyles.inputContainer}>
-                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>Data/Hora</Text>
+                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>
+                                        {t("eventos.form.dataHoraLabel")}
+                                    </Text>
                                     <TextInput
-                                        placeholder="dd/mm/aaaa hh:mm:ss"
+                                        placeholder={t("eventos.form.dataHoraPlaceholder")}
                                         placeholderTextColor={colors.mutedText}
                                         value={dataHoraText}
-                                        onChangeText={(v) => setDataHoraText(maskDateTime(v))} // sem zeros automáticos
+                                        onChangeText={(v) => setDataHoraText(maskDateTime(v))}
                                         onBlur={() => {
                                             const normalized = normalizePtDateTime(dataHoraText);
                                             if (!normalized) {
@@ -295,10 +311,12 @@ export default function EventoForm() {
 
                                 {/* Moto ID */}
                                 <View style={globalStyles.inputContainer}>
-                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>Moto (ID)</Text>
+                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>
+                                        {t("eventos.form.motoIdLabel")}
+                                    </Text>
                                     <TextInput
                                         keyboardType="numeric"
-                                        placeholder="ID da moto"
+                                        placeholder={t("eventos.form.motoIdPlaceholder")}
                                         placeholderTextColor={colors.mutedText}
                                         value={form.motoId ? String(form.motoId) : ""}
                                         onChangeText={(v) => {
@@ -320,9 +338,11 @@ export default function EventoForm() {
 
                                 {/* Tipo */}
                                 <View style={globalStyles.inputContainer}>
-                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>Tipo</Text>
+                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>
+                                        {t("eventos.form.tipoLabel")}
+                                    </Text>
                                     <TextInput
-                                        placeholder="Ex.: MANUTENCAO, SINISTRO, DEVOLUCAO"
+                                        placeholder={t("eventos.form.tipoPlaceholder")}
                                         placeholderTextColor={colors.mutedText}
                                         value={form.tipo ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, tipo: v }))}
@@ -341,9 +361,11 @@ export default function EventoForm() {
 
                                 {/* Motivo */}
                                 <View style={globalStyles.inputContainer}>
-                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>Motivo</Text>
+                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>
+                                        {t("eventos.form.motivoLabel")}
+                                    </Text>
                                     <TextInput
-                                        placeholder="Descreva brevemente"
+                                        placeholder={t("eventos.form.motivoPlaceholder")}
                                         placeholderTextColor={colors.mutedText}
                                         value={form.motivo ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, motivo: v }))}
@@ -363,9 +385,11 @@ export default function EventoForm() {
 
                                 {/* Localização */}
                                 <View style={globalStyles.inputContainer}>
-                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>Localização</Text>
+                                    <Text style={[globalStyles.inputLabel, { color: colors.mutedText }]}>
+                                        {t("eventos.form.localizacaoLabel")}
+                                    </Text>
                                     <TextInput
-                                        placeholder="Ex.: Filial Vila Mariana - Box 3"
+                                        placeholder={t("eventos.form.localizacaoPlaceholder")}
                                         placeholderTextColor={colors.mutedText}
                                         value={form.localizacao ?? ""}
                                         onChangeText={(v) => setForm((s) => ({ ...s, localizacao: v }))}
@@ -381,21 +405,21 @@ export default function EventoForm() {
                                 <View style={listStyles.row}>
                                     <Pressable
                                         accessibilityRole="button"
-                                        accessibilityLabel={isEdit ? "Atualizar evento" : "Salvar evento"}
-                                        accessibilityHint="Valida os campos e envia os dados do evento."
+                                        accessibilityLabel={isEdit ? t("eventos.form.a11yUpdate") : t("eventos.form.a11ySave")}
+                                        accessibilityHint={t("eventos.form.a11yHintSubmit")}
                                         android_ripple={{ color: colors.ripple }}
                                         disabled={salvando}
                                         style={[globalStyles.button, { backgroundColor: colors.button }]}
                                         onPress={salvar}
                                     >
                                         <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>
-                                            {salvando ? "Salvando..." : (isEdit ? "Atualizar" : "Salvar")}
+                                            {salvando ? t("common.saving") : (isEdit ? t("common.update") : t("common.save"))}
                                         </Text>
                                     </Pressable>
 
                                     <Pressable
                                         accessibilityRole="button"
-                                        accessibilityLabel="Voltar"
+                                        accessibilityLabel={t("common.back")}
                                         android_ripple={{ color: colors.ripple }}
                                         style={[
                                             globalStyles.button,
@@ -403,25 +427,26 @@ export default function EventoForm() {
                                         ]}
                                         onPress={() => router.back()}
                                     >
-                                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Voltar</Text>
+                                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>{t("common.back")}</Text>
                                     </Pressable>
                                 </View>
                             </>
                         )}
                     </View>
 
+                    {/* Ações extras (excluir) */}
                     {isEdit && (
                         <View style={[formStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <Text style={[globalStyles.text, { color: colors.text }]}>Ações</Text>
+                            <Text style={[globalStyles.text, { color: colors.text }]}>{t("eventos.form.actionsTitle")}</Text>
                             <Pressable
                                 accessibilityRole="button"
-                                accessibilityLabel="Excluir evento"
-                                accessibilityHint="Ação irreversível"
+                                accessibilityLabel={t("eventos.form.a11yDelete")}
+                                accessibilityHint={t("eventos.form.a11yDeleteHint")}
                                 android_ripple={{ color: colors.ripple }}
                                 onPress={excluir}
                                 style={[formStyles.dangerBtn, { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder }]}
                             >
-                                <Text style={[globalStyles.buttonText, { color: "#fecaca" }]}>Excluir</Text>
+                                <Text style={[globalStyles.buttonText, { color: "#fecaca" }]}>{t("common.delete")}</Text>
                             </Pressable>
                         </View>
                     )}

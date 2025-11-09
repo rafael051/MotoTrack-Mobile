@@ -1,3 +1,4 @@
+// File: app/AlterarSenhaScreen.tsx
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, ActivityIndicator } from "react-native";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
@@ -6,6 +7,7 @@ import { useRouter } from "expo-router";
 import { useTheme } from "../src/context/ThemeContext";
 import globalStyles, { themedStyles } from "../src/styles/globalStyles";
 import ThemeToggleButton from "../src/components/ThemeToggleButton";
+import { useTranslation } from "react-i18next";
 
 export default function AlterarSenhaScreen() {
     const [senhaAtual, setSenhaAtual] = useState("");
@@ -16,20 +18,24 @@ export default function AlterarSenhaScreen() {
 
     const router = useRouter();
     const { colors } = useTheme();
-    const t = themedStyles(colors);
+    const tStyles = themedStyles(colors);
+
+    // 🌍 i18n
+    const { t, i18n } = useTranslation();
+    const mudarIdioma = (lang: string) => i18n.changeLanguage(lang);
 
     const mapFirebaseError = (code?: string) => {
         switch (code) {
             case "auth/wrong-password":
-                return "Senha atual incorreta.";
+                return t("auth.errWrongPassword");
             case "auth/too-many-requests":
-                return "Muitas tentativas. Tente novamente em instantes.";
+                return t("auth.errTooManyRequests");
             case "auth/weak-password":
-                return "A nova senha é muito fraca (mín. 6 caracteres).";
+                return t("auth.errWeakPassword");
             case "auth/requires-recent-login":
-                return "É necessário relogar para alterar a senha.";
+                return t("auth.errRequiresRecentLogin");
             default:
-                return "Não foi possível alterar a senha.";
+                return t("auth.errChangePasswordGeneric");
         }
     };
 
@@ -37,15 +43,15 @@ export default function AlterarSenhaScreen() {
         setErro(null);
 
         if (!senhaAtual || !novaSenha || !confirmarSenha) {
-            setErro("Preencha todos os campos.");
+            setErro(t("auth.fillAllFields"));
             return;
         }
         if (novaSenha.length < 6) {
-            setErro("A nova senha deve ter pelo menos 6 caracteres.");
+            setErro(t("auth.errWeakPassword"));
             return;
         }
         if (novaSenha !== confirmarSenha) {
-            setErro("As senhas não coincidem.");
+            setErro(t("auth.errPasswordsDontMatch"));
             return;
         }
 
@@ -53,7 +59,7 @@ export default function AlterarSenhaScreen() {
             setLoading(true);
             const user = auth.currentUser;
             if (!user || !user.email) {
-                setErro("Nenhum usuário logado.");
+                setErro(t("auth.errNoUserLogged"));
                 return;
             }
 
@@ -61,7 +67,7 @@ export default function AlterarSenhaScreen() {
             await reauthenticateWithCredential(user, credential);
             await updatePassword(user, novaSenha);
 
-            Alert.alert("Sucesso", "Senha alterada com sucesso.");
+            Alert.alert(t("common.success"), t("auth.passwordChangedSuccess"));
             router.back();
         } catch (e: any) {
             const msg = mapFirebaseError(e?.code);
@@ -75,19 +81,22 @@ export default function AlterarSenhaScreen() {
     return (
         <View style={[globalStyles.container, { backgroundColor: colors.background }]}>
             <View style={globalStyles.authContainer}>
+                {/* Título */}
                 <Text accessibilityRole="header" style={[globalStyles.title, { color: colors.text }]}>
-                    Alterar senha
+                    {t("auth.changePassword")}
                 </Text>
 
                 {/* Senha atual */}
                 <View style={globalStyles.inputContainer}>
-                    <Text style={[globalStyles.inputLabel, { color: colors.text }]}>Senha atual</Text>
+                    <Text style={[globalStyles.inputLabel, { color: colors.text }]}>
+                        {t("auth.currentPasswordLabel")}
+                    </Text>
                     <TextInput
                         style={[
                             globalStyles.input,
                             { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
                         ]}
-                        placeholder="Digite a senha atual"
+                        placeholder={t("auth.currentPasswordPlaceholder")}
                         placeholderTextColor={colors.mutedText ?? "#aaa"}
                         value={senhaAtual}
                         onChangeText={setSenhaAtual}
@@ -99,13 +108,15 @@ export default function AlterarSenhaScreen() {
 
                 {/* Nova senha */}
                 <View style={globalStyles.inputContainer}>
-                    <Text style={[globalStyles.inputLabel, { color: colors.text }]}>Nova senha</Text>
+                    <Text style={[globalStyles.inputLabel, { color: colors.text }]}>
+                        {t("auth.newPasswordLabel")}
+                    </Text>
                     <TextInput
                         style={[
                             globalStyles.input,
                             { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
                         ]}
-                        placeholder="Digite a nova senha"
+                        placeholder={t("auth.newPasswordPlaceholder")}
                         placeholderTextColor={colors.mutedText ?? "#aaa"}
                         value={novaSenha}
                         onChangeText={setNovaSenha}
@@ -115,15 +126,17 @@ export default function AlterarSenhaScreen() {
                     />
                 </View>
 
-                {/* Confirmar senha */}
+                {/* Confirmar nova senha */}
                 <View style={globalStyles.inputContainer}>
-                    <Text style={[globalStyles.inputLabel, { color: colors.text }]}>Confirmar nova senha</Text>
+                    <Text style={[globalStyles.inputLabel, { color: colors.text }]}>
+                        {t("auth.confirmNewPasswordLabel")}
+                    </Text>
                     <TextInput
                         style={[
                             globalStyles.input,
                             { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
                         ]}
-                        placeholder="Repita a nova senha"
+                        placeholder={t("auth.confirmNewPasswordPlaceholder")}
                         placeholderTextColor={colors.mutedText ?? "#aaa"}
                         value={confirmarSenha}
                         onChangeText={setConfirmarSenha}
@@ -135,33 +148,62 @@ export default function AlterarSenhaScreen() {
                 </View>
 
                 {/* Erro */}
-                {!!erro && <Text style={t.errorText}>{erro}</Text>}
+                {!!erro && <Text style={tStyles.errorText}>{erro}</Text>}
 
-                {/* Ações (padrão botões grandes) */}
+                {/* Ação principal */}
                 <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Alterar senha"
+                    accessibilityLabel={t("auth.changePassword")}
                     onPress={handleAlterarSenha}
                     disabled={loading}
-                    style={[globalStyles.button, { opacity: loading ? 0.7 : 1 }, t.btnPrimary]}
+                    style={[globalStyles.button, { opacity: loading ? 0.7 : 1 }, tStyles.btnPrimary]}
                 >
                     {loading ? (
                         <ActivityIndicator />
                     ) : (
-                        <Text style={[globalStyles.buttonText, t.btnPrimaryText]}>Alterar senha</Text>
+                        <Text style={[globalStyles.buttonText, tStyles.btnPrimaryText]}>
+                            {t("auth.changePassword")}
+                        </Text>
                     )}
                 </Pressable>
 
+                {/* Voltar */}
                 <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Voltar"
+                    accessibilityLabel={t("common.back", "Voltar")}
                     onPress={() => router.back()}
-                    style={[globalStyles.button, t.btnDangerOutline, { borderColor: colors.border, borderWidth: 1 }]}
+                    style={[globalStyles.button, tStyles.btnDangerOutline, { borderColor: colors.border, borderWidth: 1 }]}
                 >
-                    <Text style={[globalStyles.buttonText, { color: colors.text }]}>Voltar</Text>
+                    <Text style={[globalStyles.buttonText, { color: colors.text }]}>
+                        {t("common.back", "Voltar")}
+                    </Text>
                 </Pressable>
 
-                {/* Rodapé — Alternar tema (padrão MotosList) */}
+                {/* Botões de idioma (iguais ao index.tsx) */}
+                <View style={globalStyles.rowCenter}>
+                    <Pressable
+                        style={[globalStyles.langButton, { backgroundColor: colors.langPtBg }]}
+                        onPress={() => mudarIdioma("pt")}
+                    >
+                        <Text style={{ color: colors.langPtText }}>PT</Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={[
+                            globalStyles.langButton,
+                            {
+                                backgroundColor: colors.langEsBg,
+                                borderWidth: colors.langEsBorder ? 1 : 0,
+                                borderColor: colors.langEsBorder ?? "transparent",
+                            },
+                        ]}
+                        onPress={() => mudarIdioma("es")}
+                    >
+                        <Text style={{ color: colors.langEsText }}>ES</Text>
+                    </Pressable>
+                </View>
+
+                {/* Rodapé — Alternar tema */}
                 <View style={globalStyles.homeFooter}>
                     <ThemeToggleButton />
                 </View>

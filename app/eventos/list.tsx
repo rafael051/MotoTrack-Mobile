@@ -10,38 +10,26 @@ import { useTheme } from "../../src/context/ThemeContext";
 import globalStyles, { listStyles } from "../../src/styles/globalStyles";
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
 import { MotoTrack, type Evento } from "../../src/services/mototrack";
+import { useTranslation } from "react-i18next";
 
-/* =========================
-   🧰 Helpers de Data/Hora
-   ========================= */
+/* ========================= util data ========================= */
 const sanitize = (t?: string) => (t ?? "").replace(/[“”"']/g, "").trim();
-
 const tryParsePt = (s: string): Date | null => {
-    // dd/mm/aaaa [hh:mm[:ss]]
-    const m = s.match(
-        /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/
-    );
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
     if (!m) return null;
     const [, dd, mm, yyyy, HH = "00", MI = "00", SS = "00"] = m;
     const d = new Date(+yyyy, +mm - 1, +dd, +HH, +MI, +SS);
     return isNaN(+d) ? null : d;
 };
-
 const asDate = (value?: string | Date | null): Date | null => {
     if (!value) return null;
     if (value instanceof Date) return isNaN(+value) ? null : value;
-
     const raw = sanitize(String(value));
-
-    // tenta PT-BR primeiro
     const pt = tryParsePt(raw);
     if (pt) return pt;
-
-    // tenta nativo (ISO, epoch string etc.)
     const d = new Date(raw);
     return isNaN(+d) ? null : d;
 };
-
 const formatPt = (d: Date, showSecondsIfAny = true) => {
     const pad = (n: number) => String(n).padStart(2, "0");
     const dd = pad(d.getDate());
@@ -55,14 +43,17 @@ const formatPt = (d: Date, showSecondsIfAny = true) => {
 };
 
 export default function EventosList() {
+    const { t, i18n } = useTranslation();
     const { colors } = useTheme();
     const router = useRouter();
+
+    // === Idioma ===
+    const lang = (i18n.language || "pt").startsWith("es") ? "es" : "pt";
+    const changeLang = (code: "pt" | "es") => i18n.changeLanguage(code);
 
     const [itens, setItens] = useState<Evento[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
-
-    // ⬇️ NOVO: pull-to-refresh e controle de exclusão em andamento
     const [refreshing, setRefreshing] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -70,30 +61,26 @@ export default function EventosList() {
         setErro(null);
         setLoading(true);
         try {
-            const data = await MotoTrack.getEventos(); // retorna EventoListItem[]
-
-            // Ordena por data desc e, em empate/ausência, usa id desc
+            const data = await MotoTrack.getEventos();
             const withSort = [...(Array.isArray(data) ? data : [])].sort((a, b) => {
                 const aRaw = (a as any).dataHora ?? "";
                 const bRaw = (b as any).dataHora ?? "";
                 const aTime = asDate(aRaw)?.getTime() ?? 0;
                 const bTime = asDate(bRaw)?.getTime() ?? 0;
-
                 if (bTime !== aTime) return bTime - aTime;
                 return ((b as any).id ?? 0) - ((a as any).id ?? 0);
             });
-
             setItens(withSort);
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
             const offline = message.includes("Network") || (e as any)?.name === "TypeError";
-            const msg = offline ? "Sem conexão. Verifique sua internet." : "Falha ao carregar";
+            const msg = offline ? t("common.offline") : t("common.loadFail");
             setErro(msg);
             setItens([]);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [t]);
 
     useFocusEffect(
         useCallback(() => {
@@ -102,7 +89,6 @@ export default function EventosList() {
         }, [carregar])
     );
 
-    // ⬇️ NOVO: ação de pull-to-refresh
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await carregar();
@@ -115,21 +101,25 @@ export default function EventosList() {
 
     const excluir = async (id: number) => {
         const ok = await new Promise<boolean>((resolve) => {
-            Alert.alert("Confirmar exclusão?", "Essa ação não poderá ser desfeita.", [
-                { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-                { text: "Excluir", style: "destructive", onPress: () => resolve(true) },
-            ]);
+            Alert.alert(
+                t("common.confirmDeleteTitle"),
+                t("common.confirmDeleteMessage"),
+                [
+                    { text: t("common.cancel"), style: "cancel", onPress: () => resolve(false) },
+                    { text: t("common.delete"), style: "destructive", onPress: () => resolve(true) },
+                ]
+            );
         });
         if (!ok) return;
         try {
-            setDeletingId(id); // ⬅️ evita duplo clique e dá feedback visual
+            setDeletingId(id);
             await MotoTrack.deleteEvento(id);
             await carregar();
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
             const offline = message.includes("Network") || (e as any)?.name === "TypeError";
-            const msg = offline ? "Sem conexão. Verifique sua internet." : "Não foi possível excluir";
-            Alert.alert("Erro", msg);
+            const msg = offline ? t("common.offline") : t("common.deleteFail");
+            Alert.alert(t("common.error"), msg);
         } finally {
             setDeletingId(null);
         }
@@ -139,12 +129,7 @@ export default function EventosList() {
         const raw = (item as any).dataHora ?? "";
         const d = asDate(raw);
         const quando = d ? formatPt(d, true) : "—";
-
         const id = (item as any).id;
-        const motoId = (item as any).motoId ?? "—";
-        const tipo = (item as any).tipo ?? "—";
-        const motivo = (item as any).motivo ?? "—";
-
         const isDeleting = deletingId === id;
 
         return (
@@ -152,7 +137,7 @@ export default function EventosList() {
                 android_ripple={{ color: colors.ripple }}
                 onPress={() => editar(id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Editar evento ${id}`}
+                accessibilityLabel={t("eventos.list.a11yEdit", { id })}
                 style={[
                     listStyles.rowItem,
                     { backgroundColor: colors.surface, borderColor: colors.border },
@@ -160,14 +145,8 @@ export default function EventosList() {
             >
                 <View style={{ flex: 1 }}>
                     <Text style={[globalStyles.cardPlaca, { color: colors.text }]}>#{id}</Text>
-                    <Text style={[globalStyles.text, { color: colors.text }]}>Data/Hora: {quando}</Text>
-                    <Text style={[globalStyles.text, { color: colors.mutedText }]}>Moto ID: {motoId}</Text>
-                    <Text style={[globalStyles.text, { color: colors.mutedText }]}>Tipo: {tipo}</Text>
-                    <Text
-                        style={[globalStyles.text, { color: colors.mutedText }]}
-                        numberOfLines={2}
-                    >
-                        {motivo}
+                    <Text style={[globalStyles.text, { color: colors.text }]}>
+                        {t("eventos.list.dataHora", { value: quando })}
                     </Text>
                 </View>
 
@@ -181,7 +160,9 @@ export default function EventosList() {
                             { backgroundColor: colors.surface, borderColor: colors.border, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: colors.text }}>{isDeleting ? "..." : "Editar"}</Text>
+                        <Text style={{ color: colors.text }}>
+                            {isDeleting ? "..." : t("common.edit")}
+                        </Text>
                     </Pressable>
 
                     <Pressable
@@ -193,7 +174,9 @@ export default function EventosList() {
                             { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder, opacity: isDeleting ? 0.6 : 1 },
                         ]}
                     >
-                        <Text style={{ color: "#fecaca" }}>{isDeleting ? "Excluindo..." : "Excluir"}</Text>
+                        <Text style={{ color: "#fecaca" }}>
+                            {isDeleting ? t("common.deleting") : t("common.delete")}
+                        </Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -202,26 +185,53 @@ export default function EventosList() {
 
     const keyExtractor = useCallback((i: Evento) => String((i as any).id), []);
 
+    // ====== UI ======
+    const LangButton = ({ code, label }: { code: "pt" | "es"; label: string }) => {
+        const selected = lang === code;
+        return (
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Idioma ${label}`}
+                android_ripple={{ color: colors.ripple }}
+                onPress={() => changeLang(code)}
+                style={[
+                    listStyles.smallBtn,
+                    {
+                        backgroundColor: selected ? colors.button : colors.surface,
+                        borderColor: selected ? colors.button : colors.border,
+                    },
+                ]}
+            >
+                <Text style={{ color: selected ? colors.buttonText : colors.text }}>{label}</Text>
+            </Pressable>
+        );
+    };
+
     return (
         <SafeAreaView style={[globalStyles.container, { backgroundColor: colors.background }]}>
             <View>
-                {/* Cabeçalho */}
-                <View>
-                    <Text accessibilityRole="header" style={[globalStyles.title, { color: colors.text }]}>
-                        📌 Eventos
-                    </Text>
-                    <Text style={[globalStyles.text, { color: colors.mutedText }]}>
-                        Registros de manutenção, sinistro e outros eventos.
-                    </Text>
+                {/* Cabeçalho + Troca de idioma */}
+                <View style={[listStyles.row, { alignItems: "center" }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text accessibilityRole="header" style={[globalStyles.title, { color: colors.text }]}>
+                            {t("eventos.list.title")}
+                        </Text>
+                        <Text style={[globalStyles.text, { color: colors.mutedText }]}>
+                            {t("eventos.list.subtitle")}
+                        </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                        <LangButton code="pt" label="PT" />
+                        <LangButton code="es" label="ES" />
+                    </View>
                 </View>
 
                 {/* Ações topo */}
                 <View style={listStyles.row}>
-                    {/* ⬇️ NOVO: Botão Voltar */}
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Voltar"
-                        accessibilityHint="Retorna para a tela anterior"
+                        accessibilityLabel={t("common.back")}
+                        accessibilityHint={t("common.backHint")}
                         android_ripple={{ color: colors.ripple }}
                         style={[
                             globalStyles.button,
@@ -229,22 +239,24 @@ export default function EventosList() {
                         ]}
                         onPress={() => router.back()}
                     >
-                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Voltar</Text>
+                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>{t("common.back")}</Text>
                     </Pressable>
 
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Criar novo evento"
+                        accessibilityLabel={t("eventos.list.a11yCreate")}
                         android_ripple={{ color: colors.ripple }}
                         style={[globalStyles.button, { backgroundColor: colors.button }]}
-                        onPress={novo}
+                        onPress={() => router.push("/eventos/form")}
                     >
-                        <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>➕ Novo</Text>
+                        <Text style={[globalStyles.buttonText, { color: colors.buttonText }]}>
+                            {t("common.new")}
+                        </Text>
                     </Pressable>
 
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Atualizar lista de eventos"
+                        accessibilityLabel={t("common.refresh")}
                         android_ripple={{ color: colors.ripple }}
                         style={[
                             globalStyles.button,
@@ -252,7 +264,7 @@ export default function EventosList() {
                         ]}
                         onPress={carregar}
                     >
-                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>Atualizar</Text>
+                        <Text style={[globalStyles.buttonText, { color: colors.text }]}>{t("common.refresh")}</Text>
                     </Pressable>
                 </View>
 
@@ -268,9 +280,7 @@ export default function EventosList() {
                     ) : (
                         <>
                             {!!erro && (
-                                <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>
-                                    {erro}
-                                </Text>
+                                <Text style={[globalStyles.text, { color: colors.dangerBorder }]}>{erro}</Text>
                             )}
 
                             <FlatList
@@ -278,14 +288,11 @@ export default function EventosList() {
                                 keyExtractor={keyExtractor}
                                 ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
                                 ListEmptyComponent={
-                                    <Text
-                                        style={[globalStyles.text, { color: colors.mutedText, textAlign: "center" }]}
-                                    >
-                                        Nenhum registro encontrado.
+                                    <Text style={[globalStyles.text, { color: colors.mutedText, textAlign: "center" }]}>
+                                        {t("common.noRecords")}
                                     </Text>
                                 }
                                 renderItem={renderItem}
-                                // ⬇️ NOVO: pull-to-refresh nativo
                                 refreshing={refreshing}
                                 onRefresh={onRefresh}
                             />

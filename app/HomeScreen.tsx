@@ -12,18 +12,18 @@ import {
     Pressable,
     Alert,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { deleteUser } from "firebase/auth";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
+import { useTranslation } from "react-i18next";
 
-// 🔔 Notifications (serviço centralizado)
 import {
     initNotifications,
     addNotificationListener,
     notifyCRUD,
     scheduleReminder,
-    parsePtOrIso,
 } from "../src/notifications/notificationsService";
 
 import { auth } from "../src/services/firebaseConfig";
@@ -36,16 +36,9 @@ import {
     type Filial,
     type Agendamento,
     type Evento,
-    type Usuario,
-    setApiBase,
+    type Usuario, setApiBase,
 } from "../src/services/mototrack";
 
-/* =========================
-   ADIÇÕES para notificações
-========================= */
-// ✅ adicionados (não removi nada do seu código)
-import * as Notifications from "expo-notifications";
-import { useFocusEffect } from "expo-router";
 
 /* =========================
    Config / Utils
@@ -53,6 +46,11 @@ import { useFocusEffect } from "expo-router";
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE?.trim() ?? "http://10.0.2.2:5267";
 setApiBase(API_BASE);
 
+
+
+/* =========================
+   Utils de data
+========================= */
 // Aceita ISO e "dd/MM/yyyy HH:mm[:ss]"
 const fmtDateTime = (s?: string | null) => {
     if (!s) return "—";
@@ -83,6 +81,10 @@ const pickEventoDate = (e: Evento): string | null => {
 export default function HomeScreen(): JSX.Element {
     const { colors } = useTheme();
     const t = themedStyles(colors);
+
+    // 🌍 i18n
+    const { t: i18nT, i18n } = useTranslation();
+    const mudarIdioma = (lang: string) => i18n.changeLanguage(lang);
 
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
@@ -127,12 +129,12 @@ export default function HomeScreen(): JSX.Element {
             setEventos(e);
             setUsuarios(u);
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : "Falha ao carregar dados";
+            const msg = err instanceof Error ? err.message : i18nT("common.genericLoadError", "Falha ao carregar dados");
             setErro(msg);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [i18nT]);
 
     useEffect(() => {
         carregar();
@@ -151,10 +153,7 @@ export default function HomeScreen(): JSX.Element {
         return unsub;
     }, []);
 
-    /* =========================
-       ADIÇÃO: handler + canal Android
-       (respeita ícone/cor definidos no app.json)
-    ========================= */
+    // 🔔 Handler + canal Android (mantido, só i18n no nome do canal se quiser)
     useEffect(() => {
         Notifications.setNotificationHandler({
             handleNotification: async () => ({
@@ -167,9 +166,9 @@ export default function HomeScreen(): JSX.Element {
         const ensureChannel = async () => {
             if (Platform.OS === "android") {
                 await Notifications.setNotificationChannelAsync("default", {
-                    name: "Geral",
+                    name: i18nT("notifications.channelGeneral", "Geral"),
                     importance: Notifications.AndroidImportance.HIGH,
-                    sound: "notify.wav", // opcional (se configurado no plugin)
+                    sound: "notify.wav", // opcional
                     vibrationPattern: [0, 250, 250, 250],
                     lightColor: "#0EA5E9",
                     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -178,12 +177,9 @@ export default function HomeScreen(): JSX.Element {
         };
 
         ensureChannel().catch(() => {});
-    }, []);
+    }, [i18nT]);
 
-    /* =========================
-       ADIÇÃO: limpeza de entregues ao focar
-       (não cancela agendadas, só limpa exibidas e zera badge)
-    ========================= */
+    // 🔔 Limpeza de notificações entregues ao focar (mantido)
     useFocusEffect(
         useCallback(() => {
             (async () => {
@@ -209,24 +205,33 @@ export default function HomeScreen(): JSX.Element {
 
     const excluirConta = () => {
         Alert.alert(
-            "Confirmar Exclusão",
-            "Tem certeza que deseja excluir sua conta? Essa ação não poderá ser desfeita.",
+            i18nT("home.deleteConfirmTitle", "Confirmar Exclusão"),
+            i18nT(
+                "home.deleteConfirmMessage",
+                "Tem certeza que deseja excluir sua conta? Essa ação não poderá ser desfeita."
+            ),
             [
-                { text: "Cancelar", style: "cancel" },
+                { text: i18nT("common.cancel", "Cancelar"), style: "cancel" },
                 {
-                    text: "Excluir",
+                    text: i18nT("home.deleteConfirmYes", "Excluir"),
                     style: "destructive",
                     onPress: async () => {
                         try {
                             const user = auth.currentUser;
-                            if (!user) return Alert.alert("Erro", "Nenhum usuário logado.");
+                            if (!user) {
+                                Alert.alert(i18nT("common.error"), i18nT("home.noUserLogged", "Nenhum usuário logado."));
+                                return;
+                            }
                             await deleteUser(user);
                             await AsyncStorage.removeItem("@user");
-                            Alert.alert("Conta Excluída", "Sua conta foi excluída com sucesso.");
+                            Alert.alert(
+                                i18nT("home.accountDeleted", "Conta Excluída"),
+                                i18nT("home.accountDeletedMsg", "Sua conta foi excluída com sucesso.")
+                            );
                             router.replace("/");
                         } catch (error) {
                             console.log("Erro ao excluir conta", error);
-                            Alert.alert("Erro", "Não foi possível excluir a conta.");
+                            Alert.alert(i18nT("common.error"), i18nT("home.couldNotDelete", "Não foi possível excluir a conta."));
                         }
                     },
                 },
@@ -234,23 +239,22 @@ export default function HomeScreen(): JSX.Element {
         );
     };
 
-    /* ====== Botões de teste (mesma UX, mas usando o service) ====== */
+    // 🔔 Botões de teste (mantidos)
     const notificarAgora = async () => {
-        await notifyCRUD("AGENDAMENTO", "CREATE", "Notificação local imediata — toque para abrir.");
+        await notifyCRUD("AGENDAMENTO", "CREATE", i18nT("home.notifyNowBody", "Notificação local imediata — toque para abrir."));
     };
 
     const notificarEm10s = async () => {
-        // agenda um lembrete “fake” para agora + 10s
         const d = new Date(Date.now() + 10_000);
         await scheduleReminder(
             "agendamento",
             "demo-10s",
             d,
-            0, // 0 min de antecedência para disparar exatamente na data (10s)
-            "Lembrete de Agendamento",
-            `Vou te lembrar em ~10 segundos (${d.toLocaleTimeString()}).`
+            0,
+            i18nT("home.reminderTitle", "Lembrete de Agendamento"),
+            i18nT("home.reminderBody10s", "Vou te lembrar em ~10 segundos ({time}).").replace("{time}", d.toLocaleTimeString())
         );
-        Alert.alert("Agendado", "Uma notificação será disparada em ~10 segundos.");
+        Alert.alert(i18nT("home.scheduled", "Agendado"), i18nT("home.notifyIn10sScheduled", "Uma notificação será disparada em ~10 segundos."));
     };
 
     return (
@@ -274,61 +278,53 @@ export default function HomeScreen(): JSX.Element {
                     <View style={[globalStyles.homeHeader, { marginBottom: 8 }]}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                             <Ionicons name="speedometer-outline" size={26} color={colors.text} />
-                            <Text style={[globalStyles.title, { color: colors.text }]}>MotoTrack</Text>
+                            <Text style={[globalStyles.title, { color: colors.text }]}>
+                                {i18nT("app.name", "MotoTrack")}
+                            </Text>
                         </View>
                     </View>
 
                     {/* Grid de Módulos */}
                     <View style={globalStyles.homeGrid}>
                         <Tile
-                            label="Motos"
+                            label={i18nT("home.modules.motos", "Motos")}
                             count={totals.motos}
                             onPress={() => router.push("/motos")}
-                            Icon={() => (
-                                <MaterialCommunityIcons name="motorbike" size={28} color={colors.buttonText} />
-                            )}
+                            Icon={() => <MaterialCommunityIcons name="motorbike" size={28} color={colors.buttonText} />}
                             t={t}
                         />
                         <Tile
-                            label="Filiais"
+                            label={i18nT("home.modules.filiais", "Filiais")}
                             count={totals.filiais}
                             onPress={() => router.push("/filiais")}
                             Icon={() => <Feather name="map-pin" size={28} color={colors.buttonText} />}
                             t={t}
                         />
                         <Tile
-                            label="Agendamentos"
+                            label={i18nT("home.modules.agendamentos", "Agendamentos")}
                             count={totals.agendamentos}
                             onPress={() => router.push("/agendamentos/list")}
-                            Icon={() => (
-                                <MaterialCommunityIcons name="calendar-clock" size={28} color={colors.buttonText} />
-                            )}
+                            Icon={() => <MaterialCommunityIcons name="calendar-clock" size={28} color={colors.buttonText} />}
                             t={t}
                         />
                         <Tile
-                            label="Eventos"
+                            label={i18nT("home.modules.eventos", "Eventos")}
                             count={totals.eventos}
                             onPress={() => router.push("/eventos")}
                             Icon={() => <Feather name="activity" size={28} color={colors.buttonText} />}
                             t={t}
                         />
                         <Tile
-                            label="Usuários"
+                            label={i18nT("home.modules.usuarios", "Usuários")}
                             count={totals.usuarios}
                             onPress={() => router.push("/usuarios")}
                             Icon={() => <Feather name="users" size={28} color={colors.buttonText} />}
                             t={t}
                         />
                         <Tile
-                            label="Sobre"
+                            label={i18nT("home.modules.sobre", "Sobre")}
                             onPress={() => router.push("/sobre")}
-                            Icon={() => (
-                                <MaterialCommunityIcons
-                                    name="information-outline"
-                                    size={28}
-                                    color={colors.buttonText}
-                                />
-                            )}
+                            Icon={() => <MaterialCommunityIcons name="information-outline" size={28} color={colors.buttonText} />}
                             t={t}
                         />
                     </View>
@@ -343,30 +339,66 @@ export default function HomeScreen(): JSX.Element {
 
                     {/* Conta */}
                     <View style={[t.accountSection, { marginTop: 12 }]}>
-                        <Text style={[globalStyles.text, t.centeredParagraph]}>Você está logado.</Text>
+                        <Text style={[globalStyles.text, t.centeredParagraph]}>
+                            {i18nT("home.loggedIn", "Você está logado.")}
+                        </Text>
 
                         <Pressable onPress={realizarLogoff} style={[globalStyles.button, t.btnPrimary]}>
-                            <Text style={[globalStyles.buttonText, t.btnPrimaryText]}>Realizar logoff</Text>
+                            <Text style={[globalStyles.buttonText, t.btnPrimaryText]}>
+                                {i18nT("home.logout", "Realizar logoff")}
+                            </Text>
                         </Pressable>
 
                         <Pressable
                             onPress={() => router.push("/AlterarSenhaScreen")}
                             style={[globalStyles.button, t.btnWarning]}
                         >
-                            <Text style={[globalStyles.buttonText, t.btnWarningText]}>Alterar Senha</Text>
+                            <Text style={[globalStyles.buttonText, t.btnWarningText]}>
+                                {i18nT("auth.changePassword", "Alterar senha")}
+                            </Text>
                         </Pressable>
 
                         <Pressable onPress={excluirConta} style={[globalStyles.button, t.btnDangerOutline]}>
-                            <Text style={[globalStyles.buttonText, t.btnDangerOutlineText]}>Excluir Conta</Text>
+                            <Text style={[globalStyles.buttonText, t.btnDangerOutlineText]}>
+                                {i18nT("home.deleteAccount", "Excluir Conta")}
+                            </Text>
                         </Pressable>
 
                         {/* 🔔 Notificações - teste (mantidos) */}
                         <Pressable onPress={notificarAgora} style={[globalStyles.button, t.btnPrimary]}>
-                            <Text style={[globalStyles.buttonText, t.btnPrimaryText]}>Notificação (agora)</Text>
+                            <Text style={[globalStyles.buttonText, t.btnPrimaryText]}>
+                                {i18nT("home.notifyNow", "Notificação (agora)")}
+                            </Text>
                         </Pressable>
 
                         <Pressable onPress={notificarEm10s} style={[globalStyles.button, t.btnWarning]}>
-                            <Text style={[globalStyles.buttonText, t.btnWarningText]}>Notificação em 10s</Text>
+                            <Text style={[globalStyles.buttonText, t.btnWarningText]}>
+                                {i18nT("home.notifyIn10s", "Notificação em 10s")}
+                            </Text>
+                        </Pressable>
+                    </View>
+
+                    {/* Botões de idioma (iguais ao index.tsx / cadastro / alterar senha) */}
+                    <View style={globalStyles.rowCenter}>
+                        <Pressable
+                            style={[globalStyles.langButton, { backgroundColor: colors.langPtBg }]}
+                            onPress={() => mudarIdioma("pt")}
+                        >
+                            <Text style={{ color: colors.langPtText }}>PT</Text>
+                        </Pressable>
+
+                        <Pressable
+                            style={[
+                                globalStyles.langButton,
+                                {
+                                    backgroundColor: colors.langEsBg,
+                                    borderWidth: colors.langEsBorder ? 1 : 0,
+                                    borderColor: colors.langEsBorder ?? "transparent",
+                                },
+                            ]}
+                            onPress={() => mudarIdioma("es")}
+                        >
+                            <Text style={{ color: colors.langEsText }}>ES</Text>
                         </Pressable>
                     </View>
 

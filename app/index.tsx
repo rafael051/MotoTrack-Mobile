@@ -134,15 +134,6 @@ export default function LoginScreen() {
 
                 {/* Botões de idioma */}
                 <View style={globalStyles.rowCenter}>
-                    <TouchableOpacity
-                        style={[
-                            globalStyles.langButton,
-                            { backgroundColor: colors.langEnBg }
-                        ]}
-                        onPress={() => mudarIdioma("en")}
-                    >
-                        <Text style={{ color: colors.langEnText }}>EN</Text>
-                    </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[
