@@ -10,27 +10,24 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0EA5E9"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.rafael51.mototrackmobile",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "notification": {
-        "icon": "./assets/notification-icon.png",
-        "color": "#0EA5E9"
-      },
-      "statusBar": {
-        "backgroundColor": "#0EA5E9",
-        "translucent": false,
-        "barStyle": "light-content"
-      },
-      "package": "com.rafael51.MotoTrackMobile"
+      }
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#0EA5E9",
+      "translucent": false,
+      "barStyle": "light-content",
+      "hidden": false
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -38,14 +35,8 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-notifications",
-        {
-          "sounds": [
-            "./assets/sounds/notify.wav"
-          ]
-        }
-      ]
+      ["expo-notifications", {}],
+      "expo-localization"
     ],
     "notification": {
       "icon": "./assets/notification-icon.png",
@@ -53,6 +44,10 @@
       "iosDisplayInForeground": true,
       "androidMode": "default",
       "androidCollapsedTitle": "MotoTrack"
+    },
+    "extra": {
+      "router": { "origin": false },
+      "eas": { "projectId": "a00d5094-35cb-4a09-ba9a-fc050dc1f79a" }
     }
   }
 }
