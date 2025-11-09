@@ -11,6 +11,8 @@ import globalStyles, { formStyles, listStyles } from "../../src/styles/globalSty
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
 import { MotoTrack, type Moto } from "../../src/services/mototrack";
 
+import { notifyCRUD } from "../../src/notifications/notificationsService";
+
 /* ============================================================================
    🧹 Utils
    -------------------------------------------------------------------------- */
@@ -53,7 +55,7 @@ export default function MotoFormScreen() {
     const [salvando, setSalvando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
 
-    // ⬇️ NOVO: erros por campo
+    // erros por campo
     const [fieldErrors, setFieldErrors] = useState<{ placa?: string; ano?: string }>({});
 
     const [form, setForm] = useState<MotoForm>({
@@ -91,12 +93,12 @@ export default function MotoFormScreen() {
                 }
                 const m = await MotoTrack.getMoto(motoId);
                 setForm({
-                    id: m.id,
-                    placa: maskPlaca(m.placa ?? ""),
-                    modelo: (m.modelo ?? "") as string,
-                    marca: (m.marca ?? "") as string,
-                    ano: m.ano ?? undefined,
-                    status: (m.status ?? "") as string,
+                    id: (m as any).id,
+                    placa: maskPlaca((m as any).placa ?? ""),
+                    modelo: ((m as any).modelo ?? "") as string,
+                    marca: ((m as any).marca ?? "") as string,
+                    ano: (m as any).ano ?? undefined,
+                    status: ((m as any).status ?? "") as string,
                 });
             }
         } catch (e: any) {
@@ -148,10 +150,18 @@ export default function MotoFormScreen() {
 
             if (!isEdit) {
                 const novo = await MotoTrack.createMoto(payload as any);
+
+                // ✅ Notificação de CRUD
+                await notifyCRUD("MOTO", "CREATE", `Moto #${(novo as any).id} criada.`);
+
                 Alert.alert("Sucesso", "Moto criada.");
-                router.replace(`/motos/form?id=${novo.id}`);
+                router.replace(`/motos/form?id=${(novo as any).id}`);
             } else {
                 await MotoTrack.updateMoto(Number(id), payload as any);
+
+                // ✅ Notificação de CRUD
+                await notifyCRUD("MOTO", "UPDATE", `Moto #${id} atualizada.`);
+
                 Alert.alert("Sucesso", "Moto atualizada.");
                 router.replace("/motos/list");
             }
@@ -178,6 +188,10 @@ export default function MotoFormScreen() {
 
         try {
             await MotoTrack.deleteMoto(Number(id));
+
+            // ✅ Notificação de CRUD
+            await notifyCRUD("MOTO", "DELETE", `Moto #${id} excluída.`);
+
             Alert.alert("Excluída", "Moto removida.");
             router.replace("/motos/list");
         } catch (e: any) {

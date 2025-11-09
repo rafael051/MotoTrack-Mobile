@@ -11,6 +11,8 @@ import globalStyles, { formStyles, listStyles } from "../../src/styles/globalSty
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
 import { MotoTrack, type Evento } from "../../src/services/mototrack";
 
+import { notifyCRUD } from "../../src/notifications/notificationsService";
+
 /* ============================================================================
    🕒 Data/Hora (PT-BR)
    - Digitação suave: apenas insere separadores (sem zeros automáticos).
@@ -18,7 +20,7 @@ import { MotoTrack, type Evento } from "../../src/services/mototrack";
    - API: envia/recebe `dataHora` como string PT-BR (NÃO ISO).
    ============================================================================ */
 
-const sanitize = (t: string) => (t ?? "").replace(/[“”"']/g, "").trim();
+const sanitize = (t?: string) => (t ?? "").replace(/[“”"']/g, "").trim();
 
 /** Máscara SUAVE: insere separadores sem completar zeros */
 const maskDateTime = (t: string) => {
@@ -68,7 +70,7 @@ export default function EventoForm() {
     const [salvando, setSalvando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
 
-    // ⬇️ NOVO: erros por campo
+    // erros por campo
     const [fieldErrors, setFieldErrors] = useState<{
         data?: string; motoId?: string; tipo?: string; motivo?: string;
     }>({});
@@ -107,7 +109,7 @@ export default function EventoForm() {
                 }
                 const found = await MotoTrack.getEvento(_id);
                 setForm({
-                    id: found.id,
+                    id: (found as any).id,
                     dataHora: (found as any).dataHora,    // PT-BR vindo da API
                     motoId: (found as any).motoId,
                     tipo: (found as any).tipo,
@@ -185,10 +187,18 @@ export default function EventoForm() {
 
             if (!isEdit) {
                 const novo = await MotoTrack.createEvento(payload);
+
+                // ✅ Notificação de CRUD
+                await notifyCRUD("EVENTO", "CREATE", `Evento #${(novo as any).id} criado.`);
+
                 Alert.alert("Sucesso", "Evento criado.");
                 router.replace(`/eventos/form?id=${(novo as any).id}`);
             } else {
                 await MotoTrack.updateEvento(Number(id), payload);
+
+                // ✅ Notificação de CRUD
+                await notifyCRUD("EVENTO", "UPDATE", `Evento #${id} atualizado.`);
+
                 Alert.alert("Sucesso", "Evento atualizado.");
                 router.replace("/eventos/list");
             }
@@ -214,6 +224,10 @@ export default function EventoForm() {
         if (!ok) return;
         try {
             await MotoTrack.deleteEvento(Number(id));
+
+            // ✅ Notificação de CRUD
+            await notifyCRUD("EVENTO", "DELETE", `Evento #${id} excluído.`);
+
             Alert.alert("Excluído", "Evento removido.");
             router.replace("/eventos/list");
         } catch (e: any) {
@@ -266,7 +280,7 @@ export default function EventoForm() {
                                         inputMode="numeric"
                                         maxLength={19}
                                         autoCorrect={false}
-                                        editable={!salvando && !loading} // ⬅️ bloqueio durante salvar/loading
+                                        editable={!salvando && !loading}
                                         style={[
                                             globalStyles.input,
                                             { borderColor: fieldErrors.data ? colors.dangerBorder : colors.border, color: colors.text, backgroundColor: colors.surface },

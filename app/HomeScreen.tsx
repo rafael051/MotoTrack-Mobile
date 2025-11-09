@@ -17,6 +17,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { deleteUser } from "firebase/auth";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 
+// 🔔 Notifications (serviço centralizado)
+import {
+    initNotifications,
+    addNotificationListener,
+    notifyCRUD,
+    scheduleReminder,
+    parsePtOrIso,
+} from "../src/notifications/notificationsService";
+
 import { auth } from "../src/services/firebaseConfig";
 import globalStyles, { themedStyles } from "../src/styles/globalStyles";
 import ThemeToggleButton from "../src/components/ThemeToggleButton";
@@ -30,6 +39,13 @@ import {
     type Usuario,
     setApiBase,
 } from "../src/services/mototrack";
+
+/* =========================
+   ADIÇÕES para notificações
+========================= */
+// ✅ adicionados (não removi nada do seu código)
+import * as Notifications from "expo-notifications";
+import { useFocusEffect } from "expo-router";
 
 /* =========================
    Config / Utils
@@ -122,6 +138,64 @@ export default function HomeScreen(): JSX.Element {
         carregar();
     }, [carregar]);
 
+    // 🔔 Inicialização + listener (abre lista de Agendamentos ao tocar)
+    useEffect(() => {
+        initNotifications();
+        const unsub = addNotificationListener((data) => {
+            if (data?.type === "agendamento" && data?.id) {
+                router.push({ pathname: "/agendamentos/list", params: { highlightId: String(data.id) } });
+            } else {
+                router.push("/agendamentos/list");
+            }
+        });
+        return unsub;
+    }, []);
+
+    /* =========================
+       ADIÇÃO: handler + canal Android
+       (respeita ícone/cor definidos no app.json)
+    ========================= */
+    useEffect(() => {
+        Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+                shouldShowAlert: true,
+                shouldPlaySound: true,
+                shouldSetBadge: true,
+            }),
+        });
+
+        const ensureChannel = async () => {
+            if (Platform.OS === "android") {
+                await Notifications.setNotificationChannelAsync("default", {
+                    name: "Geral",
+                    importance: Notifications.AndroidImportance.HIGH,
+                    sound: "notify.wav", // opcional (se configurado no plugin)
+                    vibrationPattern: [0, 250, 250, 250],
+                    lightColor: "#0EA5E9",
+                    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+                });
+            }
+        };
+
+        ensureChannel().catch(() => {});
+    }, []);
+
+    /* =========================
+       ADIÇÃO: limpeza de entregues ao focar
+       (não cancela agendadas, só limpa exibidas e zera badge)
+    ========================= */
+    useFocusEffect(
+        useCallback(() => {
+            (async () => {
+                try {
+                    await Notifications.dismissAllNotificationsAsync();
+                    await Notifications.setBadgeCountAsync(0);
+                } catch {}
+            })();
+            return () => {};
+        }, [])
+    );
+
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await carregar();
@@ -158,6 +232,25 @@ export default function HomeScreen(): JSX.Element {
                 },
             ]
         );
+    };
+
+    /* ====== Botões de teste (mesma UX, mas usando o service) ====== */
+    const notificarAgora = async () => {
+        await notifyCRUD("AGENDAMENTO", "CREATE", "Notificação local imediata — toque para abrir.");
+    };
+
+    const notificarEm10s = async () => {
+        // agenda um lembrete “fake” para agora + 10s
+        const d = new Date(Date.now() + 10_000);
+        await scheduleReminder(
+            "agendamento",
+            "demo-10s",
+            d,
+            0, // 0 min de antecedência para disparar exatamente na data (10s)
+            "Lembrete de Agendamento",
+            `Vou te lembrar em ~10 segundos (${d.toLocaleTimeString()}).`
+        );
+        Alert.alert("Agendado", "Uma notificação será disparada em ~10 segundos.");
     };
 
     return (
@@ -266,6 +359,15 @@ export default function HomeScreen(): JSX.Element {
                         <Pressable onPress={excluirConta} style={[globalStyles.button, t.btnDangerOutline]}>
                             <Text style={[globalStyles.buttonText, t.btnDangerOutlineText]}>Excluir Conta</Text>
                         </Pressable>
+
+                        {/* 🔔 Notificações - teste (mantidos) */}
+                        <Pressable onPress={notificarAgora} style={[globalStyles.button, t.btnPrimary]}>
+                            <Text style={[globalStyles.buttonText, t.btnPrimaryText]}>Notificação (agora)</Text>
+                        </Pressable>
+
+                        <Pressable onPress={notificarEm10s} style={[globalStyles.button, t.btnWarning]}>
+                            <Text style={[globalStyles.buttonText, t.btnWarningText]}>Notificação em 10s</Text>
+                        </Pressable>
                     </View>
 
                     {/* Rodapé */}
@@ -291,7 +393,10 @@ type TileProps = {
 
 function Tile({ label, count, onPress, Icon, t }: TileProps) {
     return (
-        <Pressable onPress={onPress} style={({ pressed }) => [globalStyles.homeTile, t.homeTileSurface, pressed && t.homeTilePressed]}>
+        <Pressable
+            onPress={onPress}
+            style={({ pressed }) => [globalStyles.homeTile, t.homeTileSurface, pressed && t.homeTilePressed]}
+        >
             <View style={globalStyles.homeTileIconWrap}>
                 <Icon />
             </View>

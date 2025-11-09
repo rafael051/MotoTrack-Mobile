@@ -10,11 +10,14 @@ import globalStyles, { formStyles, listStyles } from "../../src/styles/globalSty
 import ThemeToggleButton from "../../src/components/ThemeToggleButton";
 import { MotoTrack, type Agendamento } from "../../src/services/mototrack";
 
+
+import { notifyCRUD, scheduleReminder } from "../../src/notifications/notificationsService";
+
 /* ============================================================================
-   🕒 Data/Hora (PT-BR)
-   - Digitação suave: máscara só insere separadores (sem zeros automáticos).
-   - No onBlur/salvar: normaliza p/ dd/MM/yyyy HH:mm:ss (com :00 se faltar).
-   - API: envia/recebe `dataAgendada` como string PT-BR (NÃO ISO).
+    🕒 Data/Hora (PT-BR)
+    - Digitação suave: máscara só insere separadores (sem zeros automáticos).
+    - No onBlur/salvar: normaliza p/ dd/MM/yyyy HH:mm:ss (com :00 se faltar).
+    - API: envia/recebe `dataAgendada` como string PT-BR (NÃO ISO).
    ============================================================================ */
 
 /** Remove aspas e trims */
@@ -182,10 +185,44 @@ export default function AgendamentoForm() {
 
             if (!isEdit) {
                 const novo = await MotoTrack.createAgendamento(payload);
+
+                // ✅ NOVO: Notificação de CRUD (não removemos as existentes)
+                await notifyCRUD("AGENDAMENTO", "CREATE", `Agendamento #${(novo as any).id} criado.`);
+
+                // ✅ NOVO: Lembrete local 10 minutos antes
+                const d = parsePtToDate(normalized);
+                if (d) {
+                    await scheduleReminder(
+                        "agendamento",
+                        (novo as any).id,
+                        d,
+                        10,
+                        "Lembrete de Agendamento",
+                        `Agendamento #${(novo as any).id} às ${d.toLocaleString()}.`
+                    );
+                }
+
                 Alert.alert("Sucesso", "Agendamento criado.");
                 router.replace(`/agendamentos/form?id=${(novo as any).id}`);
             } else {
                 await MotoTrack.updateAgendamento(Number(id), payload);
+
+                // ✅ NOVO: Notificação de CRUD
+                await notifyCRUD("AGENDAMENTO", "UPDATE", `Agendamento #${id} atualizado.`);
+
+                // ✅ NOVO: (Opcional) reagendar lembrete 10 minutos antes
+                const d = parsePtToDate(normalized);
+                if (d) {
+                    await scheduleReminder(
+                        "agendamento",
+                        Number(id),
+                        d,
+                        10,
+                        "Lembrete de Agendamento",
+                        `Agendamento #${id} às ${d.toLocaleString()}.`
+                    );
+                }
+
                 Alert.alert("Sucesso", "Agendamento atualizado.");
                 router.replace("/agendamentos/list");
             }
@@ -211,6 +248,10 @@ export default function AgendamentoForm() {
         if (!ok) return;
         try {
             await MotoTrack.deleteAgendamento(Number(id));
+
+            // ✅ NOVO: Notificação de CRUD
+            await notifyCRUD("AGENDAMENTO", "DELETE", `Agendamento #${id} excluído.`);
+
             Alert.alert("Excluído", "Agendamento removido.");
             router.replace("/agendamentos/list");
         } catch (e: any) {
